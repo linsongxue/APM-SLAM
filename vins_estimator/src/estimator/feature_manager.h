@@ -51,11 +51,6 @@ class FeaturePerFrame
         velocityRight.y() = _point(6); 
         is_stereo = true;
     }
-    // void normalized()
-    // {
-    //   point /= point.z();
-    //   // pointRight /= pointRight.z();
-    // }
     double cur_td;
     Vector3d point, pointRight;
     Vector2d uv, uvRight;
@@ -113,8 +108,6 @@ class FeatureManager
     double last_average_parallax;
     int new_feature_num;
     int long_track_num;
-    // bool useMap = false;
-    // unordered_map<int, int> feature_mapp3d;
 
   private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);

@@ -579,77 +579,6 @@ bool FeatureTracker::setPairs(const std::string &pair_path)
     }
 }
 
-bool FeatureTracker::parseMapDescrip(const string &filePath, const string &imgName, Eigen::Matrix<double, 259, Eigen::Dynamic> &descriptors)
-{
-    try
-    {
-        H5::H5File file(filePath, H5F_ACC_RDONLY);
-        string descs = imgName + "/descriptors";
-        string scores = imgName + "/scores";
-        string keypoints = imgName + "/keypoints";
-
-        H5::DataSet Ddataset = file.openDataSet(descs);
-        H5::DataSet Sdataset = file.openDataSet(scores);
-        H5::DataSet Kdataset = file.openDataSet(keypoints);
-
-        H5::DataSpace Ddataspace = Ddataset.getSpace();
-        H5::DataSpace Sdataspace = Sdataset.getSpace();
-        H5::DataSpace Kdataspace = Kdataset.getSpace();
-
-        int Drank = Ddataspace.getSimpleExtentNdims();
-        int Srank = Sdataspace.getSimpleExtentNdims();
-        int Krank = Kdataspace.getSimpleExtentNdims();
-
-        hsize_t Ddims_out[2];
-        hsize_t Sdims_out[1];
-        hsize_t Kdims_out[2];
-
-        int Dndims = Ddataspace.getSimpleExtentDims(Ddims_out, NULL);
-        int Sndims = Sdataspace.getSimpleExtentDims(Sdims_out, NULL);
-        int Kndims = Kdataspace.getSimpleExtentDims(Kdims_out, NULL);
-
-        H5::DataSpace Dmspace1(Drank, Ddims_out);
-        H5::DataSpace Smspace1(Srank, Sdims_out);
-        H5::DataSpace Kmspace1(Krank, Kdims_out);
-
-        Eigen::Matrix<double, 256, Eigen::Dynamic, Eigen::RowMajor> Dtmp(256, Ddims_out[1]);
-        Eigen::Matrix<double, 1, Eigen::Dynamic> Stmp(1, Sdims_out[0]);
-        Eigen::Matrix<double, 2, Eigen::Dynamic> Ktmp(2, Kdims_out[0]);
-        
-        Ddataset.read(Dtmp.data(), H5::PredType::NATIVE_DOUBLE, Dmspace1, Ddataspace);
-        Sdataset.read(Stmp.data(), H5::PredType::NATIVE_DOUBLE, Smspace1, Sdataspace);
-        Kdataset.read(Ktmp.data(), H5::PredType::NATIVE_DOUBLE, Kmspace1, Kdataspace);
-        descriptors.resize(259, Ddims_out[1]);
-        Stmp.resize(1, Sdims_out[0]);
-        Ktmp.resize(2, Kdims_out[0]);
-        Dtmp.resize(256, Ddims_out[1]);
-        descriptors.topRows(1) = Stmp;
-        descriptors.middleRows(1, 2) = Ktmp;
-        descriptors.bottomRows(256) = Dtmp;
-        // cout << descriptors.block(3, 0, 2, 5) << endl;
-        // cout << Dtmp.block(0, 0, 2, 5) << endl;
-        // cout << descriptors.block(1, 0, 2, 5) << endl;
-        // cout << Ktmp.block(0, 0, 2, 5) << endl;
-        file.close();
-        return true;
-    }
-    catch (const H5::FileIException &error)
-    {
-        error.printErrorStack();
-        return false;
-    }
-    catch (const H5::DataSetIException &error)
-    {
-        error.printErrorStack();
-        return false;
-    }
-    catch (const H5::DataSpaceIException &error)
-    {
-        error.printErrorStack();
-        return false;
-    }
-}
-
 bool FeatureTracker::parsePoints3DTxt(const std::string &points3D_txt)
 {
     points3D.clear();
@@ -758,95 +687,6 @@ bool FeatureTracker::parseImagesTxt(const std::string &images_txt)
         std::cerr << "Unable to open images file" << std::endl;
         return false;
     }
-}
-
-bool FeatureTracker::parseNNModel(const string &cfg, const string &weights)
-{
-    Configs configs(cfg, weights);
-    superpoint = std::make_shared<SuperPoint>(configs.superpoint_config);
-    if (!superpoint->build())
-    {
-        nn_model = false;
-        std::cerr << "Error in SuperPoint building engine. Please check your onnx model path." << std::endl;
-        return false;
-    }
-    superglue = make_shared<SuperGlue>(configs.superglue_config);
-    if (!superglue->build())
-    {
-        nn_model = false;
-        std::cerr << "Error in SuperGlue building engine. Please check your onnx model path." << std::endl;
-        return false;
-    }
-    nn_model = true;
-    std::cout << "SuperPoint and SuperGlue inference engine build success." << std::endl;
-    return true;
-}
-
-void FeatureTracker::projMapPointNN(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id)
-{
-    vector<cv::Point2f> map_pts;
-    vector<uchar> status;
-    vector<float> err;
-    vector<int> desc_ids;
-    unordered_set<int> tracked_p3d(map_ids.begin(), map_ids.end());
-    int desc_idx = 0;
-    for (auto it_per_point = imgInfo.points2D.begin(); it_per_point != imgInfo.points2D.end(); ++it_per_point)
-    {
-        if(tracked_p3d.find(it_per_point->first) == tracked_p3d.end())
-        {
-            desc_ids.push_back(desc_idx);
-            points3D_id.push_back(it_per_point->first);
-            map_pts.push_back(it_per_point->second);
-        }
-        desc_idx++;
-        if(desc_ids.size() >= 600)
-        {
-            break;
-        }
-    }
-
-    Eigen::Matrix<double, 259, Eigen::Dynamic> tmp;
-    parseMapDescrip(mapBaseDir + FEATURE_NAME, imgInfo.image_name, tmp);
-    Eigen::Matrix<double, 259, Eigen::Dynamic> feature_points0, feature_points1;
-    feature_points0.resize(259, desc_ids.size());
-    for (size_t i = 0; i < desc_ids.size(); ++i)
-    {
-        feature_points0.col(i) = tmp.col(desc_ids[i]);
-    }
-
-    std::vector<cv::DMatch> superglue_matches;
-    superpoint->infer(cur_img, feature_points1);
-    ROS_DEBUG("detection completed");
-    ROS_DEBUG("num of kp0: %d", feature_points0.cols());
-    ROS_DEBUG("num of kp1: %d", feature_points1.cols());
-    int match_num = superglue->matching_points(feature_points0, feature_points1, superglue_matches);
-    ROS_DEBUG("num of match: %d", match_num);
-    ROS_DEBUG("match completed");
-
-    feature_points1.cast<float>();
-    status.resize(map_pts.size(), 0);
-    cur_pts.resize(map_pts.size(), cv::Point2f(0, 0));
-    for (auto &match : superglue_matches)
-    {
-        status[match.queryIdx] = 1;
-        cur_pts[match.queryIdx] = cv::Point2f(feature_points1(1, match.trainIdx), feature_points1(2, match.trainIdx));
-    }
-    for (int i = 0; i < int(cur_pts.size()); ++i)
-    {
-        if (status[i])
-        {
-            if (mask.at<uchar>(cur_pts[i]) == 0)
-            {
-                status[i] = 0;
-            }
-            else
-            {
-                cv::circle(mask, cur_pts[i], MIN_DIST / 2, 0, -1);
-            }
-        }
-    }
-    reduceVector(cur_pts, status);
-    reduceVector(points3D_id, status);
 }
 
 /*
@@ -1014,19 +854,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             if(!matchImgFile.empty())
             {
                 cv::Mat mapImg = cv::imread(mapBaseDir + "post-map/" + matchImgFile, cv::IMREAD_GRAYSCALE);
-                // fs::path path(matchImgFile);
-                // string file_name = path.filename().string();
-                // MapImage imgInfo = images[matchImgFile];
-                // cur_refimg = imgInfo;
                 cur_refimg = images[matchImgFile];
-                // if(nn_model)
-                // {
-                //     projMapPointNN(mapImg, cur_refimg, n_pts, new_map_p3d_id);
-                // }
-                // else
-                // {
-                //     projMapPointOF(mapImg, cur_refimg, n_pts, new_map_p3d_id);
-                // }
                 projMapPointOF(mapImg, cur_refimg, n_pts, new_map_p3d_id);
                 if (int(n_pts.size()) > n_max_cnt)
                 {

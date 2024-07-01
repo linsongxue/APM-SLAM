@@ -86,15 +86,6 @@ class Estimator
         coarse_camera_t = t;
         coarse_camera_Q = Q;
     }
-    void looseCoupling();
-    void setMapInfo(const string &pairs_path);
-    void setNNInfo()
-    {
-        bool NNSucc = featureTracker.parseNNModel(SP_CFG, SP_WGT);
-        useNN = NNSucc;
-    }
-    void inputImageWithMap(const string &img_name, double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
-    void removeDuplicateRef(vector<MapImage> &refs);
 
     enum SolverFlag
     {
@@ -197,12 +188,5 @@ class Estimator
     double para_CoarsePose[(WINDOW_SIZE + 1)][SIZE_POSE];
     Eigen::Vector3d coarse_camera_t;
     Eigen::Quaterniond coarse_camera_Q;
-
-    bool useMap = false;
-    bool useNN = false;
-    queue<pair<double, unordered_map<int, int>>> mapPointsIdBuf;
-    queue<MapImage> refMapImgBuf;
-    pair<double, unordered_map<int, int>> cur_feature_mapp3d;
-    MapImage Refs[WINDOW_SIZE + 1];
-    double para_RefPose[WINDOW_SIZE + 1][SIZE_POSE];
+    
 };

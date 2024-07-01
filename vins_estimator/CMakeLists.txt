@@ -24,21 +24,12 @@ set(Ceres_DIR "/home/setsu/workspace/ceres-solver/build/installed/lib/cmake/Cere
 find_package(Ceres REQUIRED)
 
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
-include_directories(/home/setsu/workspace/TensorRT-8.5.1.7/include)
-link_directories(/home/setsu/workspace/TensorRT-8.5.1.7/lib)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
-set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda-11.8")
-find_package(CUDA REQUIRED)
-find_package(yaml-cpp REQUIRED)
-find_package(HDF5 COMPONENTS CXX)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
-  ${CUDA_INCLUDE_DIRS}
-  ${YAML_CPP_INCLUDE_DIR}
-  ${HDF5_INCLUDE_DIRS}
 )
 
 catkin_package()
@@ -60,20 +51,13 @@ add_library(vins_lib
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
     src/featureTracker/feature_tracker.cpp
-    src/superpoint/super_point.cpp
-    src/superpoint/super_glue.cpp
-    src/tensorrtbuffer/logger.cpp
 )
 
 target_link_libraries(vins_lib 
   ${catkin_LIBRARIES} 
   ${OpenCV_LIBS} 
   ${CERES_LIBRARIES} 
-  ${CUDA_LIBRARIES}
-  ${HDF5_LIBRARIES} 
-  nvinfer 
-  nvonnxparser 
-  yaml-cpp)
+)
 
 
 add_executable(vins_node src/rosNodeTest.cpp)

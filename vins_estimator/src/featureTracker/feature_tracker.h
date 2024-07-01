@@ -21,20 +21,16 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <iomanip>
-#include <H5Cpp.h>
 
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
 #include "camodocal/camera_models/PinholeCamera.h"
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
-#include "../superpoint/super_point.h"
-#include "../superpoint/super_glue.h"
 
 using namespace std;
 using namespace camodocal;
 using namespace Eigen;
-using namespace H5;
 
 bool inBorder(const cv::Point2f &pt);
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
@@ -93,9 +89,6 @@ public:
     bool parseImagesTxt(const std::string &images_txt);
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImageWithMap(const string &img_name, double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     void projMapPointOF(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id);
-    void projMapPointNN(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id);
-    bool parseNNModel(const string &cfg, const string &weights);
-    bool parseMapDescrip(const string &filePath, const string &datasetName, Eigen::Matrix<double, 259, Eigen::Dynamic> &descriptors);
 
     int row, col;
     cv::Mat imTrack;
@@ -132,8 +125,4 @@ public:
     Eigen::Matrix3d coarse_R = Eigen::Matrix3d::Identity();
     Eigen::Vector3d coarse_t = Eigen::Vector3d::Zero();
     bool estimate_T = false;
-    std::shared_ptr<SuperPoint> superpoint;
-    std::shared_ptr<SuperGlue> superglue;
-    std::mutex _gpu_mutex;
-    bool nn_model = false;
 };

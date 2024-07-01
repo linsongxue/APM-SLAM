@@ -78,20 +78,11 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
         if (it == feature.end())
         {
             feature.push_back(FeaturePerId(feature_id, frame_count));
-            // double depth = f_per_fra.point.z();
-            // f_per_fra.normalized();
             feature.back().feature_per_frame.push_back(f_per_fra);
-            // feature.back().mapPointId = feature_mapp3d[feature_id];
-            // if (depth > 1)
-            // {
-            //     feature.back().estimated_depth = depth;
-            //     feature.back().solve_flag = 1;
-            // }
             new_feature_num++;
         }
         else if (it->feature_id == feature_id)
         {
-            // f_per_fra.normalized();
             it->feature_per_frame.push_back(f_per_fra);
             last_track_num++;
             if( it-> feature_per_frame.size() >= 4)
