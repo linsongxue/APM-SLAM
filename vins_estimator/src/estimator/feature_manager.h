@@ -51,6 +51,11 @@ class FeaturePerFrame
         velocityRight.y() = _point(6); 
         is_stereo = true;
     }
+    // void normalized()
+    // {
+    //   point /= point.z();
+    //   // pointRight /= pointRight.z();
+    // }
     double cur_td;
     Vector3d point, pointRight;
     Vector2d uv, uvRight;
@@ -67,6 +72,7 @@ class FeaturePerId
     int used_num;
     double estimated_depth;
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
+    // int mapPointId = -1;
 
     FeaturePerId(int _feature_id, int _start_frame)
         : feature_id(_feature_id), start_frame(_start_frame),
@@ -107,6 +113,8 @@ class FeatureManager
     double last_average_parallax;
     int new_feature_num;
     int long_track_num;
+    // bool useMap = false;
+    // unordered_map<int, int> feature_mapp3d;
 
   private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);

@@ -7,7 +7,7 @@ num_of_cam: 2
 imu_topic: ""
 image0_topic: "/leftImage"
 image1_topic: "/rightImage"
-output_path: "/home/tony-ws1/output/"
+output_path: "/home/setsu/Pictures/kittiOut"
 
 cam0_calib: "cam00-02.yaml"
 cam1_calib: "cam00-02.yaml"
@@ -63,3 +63,7 @@ g_norm: 9.81007     # gravity magnitude
 estimate_td: 0                      # online estimate time offset between camera and imu
 td: 0.0                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
+#superpoint parameters
+superpoint_cfg: "/home/setsu/workspace/catkin_ws/src/VINS-Fusion/config/SuperPointCfg/config.yaml"
+superpoint_weight: "/home/setsu/workspace/catkin_ws/src/VINS-Fusion/config/SuperPointWeights"
+feature_name: "feats-superpoint-n4096-rmax1600.h5"

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(global_fusion)
 
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-std=c++14")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
+set(Ceres_DIR "/home/setsu/workspace/ceres-solver/build/installed/lib/cmake/Ceres")
 find_package(Ceres REQUIRED)
 
 add_subdirectory(./ThirdParty/GeographicLib/)

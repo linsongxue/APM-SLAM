@@ -20,6 +20,7 @@
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
+#include <geometry_msgs/PoseStamped.h>
 
 Estimator estimator;
 
@@ -28,7 +29,8 @@ queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
 std::mutex m_buf;
-
+queue<geometry_msgs::PoseStamped::ConstPtr> coarse_pose_buf;
+std::mutex m_pose_buf;
 
 void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
@@ -44,6 +46,12 @@ void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
     m_buf.unlock();
 }
 
+void coarse_pose_callback(const geometry_msgs::PoseStamped::ConstPtr &pose_msg)
+{
+    m_pose_buf.lock();
+    coarse_pose_buf.push(pose_msg);
+    m_pose_buf.unlock();
+}
 
 cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 {
@@ -65,6 +73,18 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 
     cv::Mat img = ptr->image.clone();
     return img;
+}
+
+void getPoseFromMsg(const geometry_msgs::PoseStamped::ConstPtr &pose_msg, Eigen::Vector3d &position, Eigen::Quaterniond &quaternion)
+{
+    position.x() = pose_msg->pose.position.x;
+    position.y() = pose_msg->pose.position.y;
+    position.z() = pose_msg->pose.position.z;
+
+    quaternion.w() = pose_msg->pose.orientation.w;
+    quaternion.x() = pose_msg->pose.orientation.x;
+    quaternion.y() = pose_msg->pose.orientation.y;
+    quaternion.z() = pose_msg->pose.orientation.z;
 }
 
 // extract images with same timestamp from two topics
@@ -105,6 +125,33 @@ void sync_process()
                 }
             }
             m_buf.unlock();
+            // recieve pose data
+            Eigen::Vector3d coarse_position;
+            Eigen::Quaterniond coarse_quaternion;
+            bool got_coarse_pose = false;
+            m_pose_buf.lock();
+            while(!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
+            {
+                coarse_pose_buf.pop();
+            }
+            if (!coarse_pose_buf.empty())
+            {
+                double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
+                if(abs(pose_time - time) < 0.05)
+                {
+                    getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
+                    coarse_pose_buf.pop();
+                    got_coarse_pose = true;
+                }
+            }
+            m_pose_buf.unlock();
+            if(got_coarse_pose)
+            {
+                // ROS_DEBUG("Quaternion: [x: %f, y: %f, z: %f, w: %f]", coarse_quaternion.w(), coarse_quaternion.x(), coarse_quaternion.y(), coarse_quaternion.z());
+                // ROS_DEBUG("Position: [x: %f, y: %f, z: %f]", coarse_position.x(), coarse_position.y(), coarse_position.z());
+                estimator.setCoarsePose(coarse_position, coarse_quaternion);
+            }
+            // end recieve pose data
             if(!image0.empty())
                 estimator.inputImage(time, image0, image1);
         }
@@ -122,6 +169,33 @@ void sync_process()
                 img0_buf.pop();
             }
             m_buf.unlock();
+            // recieve pose data
+            Eigen::Vector3d coarse_position;
+            Eigen::Quaterniond coarse_quaternion;
+            bool got_coarse_pose = false;
+            m_pose_buf.lock();
+            while (!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
+            {
+                coarse_pose_buf.pop();
+            }
+            if (!coarse_pose_buf.empty())
+            {
+                double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
+                if (abs(pose_time - time) < 0.05)
+                {
+                    getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
+                    coarse_pose_buf.pop();
+                    got_coarse_pose = true;
+                }
+            }
+            m_pose_buf.unlock();
+            if (got_coarse_pose)
+            {
+                // ROS_DEBUG("Quaternion: [x: %f, y: %f, z: %f, w: %f]", coarse_quaternion.w(), coarse_quaternion.x(), coarse_quaternion.y(), coarse_quaternion.z());
+                // ROS_DEBUG("Position: [x: %f, y: %f, z: %f]", coarse_position.x(), coarse_position.y(), coarse_position.z());
+                estimator.setCoarsePose(coarse_position, coarse_quaternion);
+            }
+            // end recieve pose data
             if(!image.empty())
                 estimator.inputImage(time, image);
         }
@@ -260,6 +334,12 @@ int main(int argc, char **argv)
     if(STEREO)
     {
         sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
+    }
+    ros::Subscriber sub_coarse_pose;
+    if(!COARSE_POSE.empty())
+    {
+        ROS_INFO("start recieve reference pose from %s", COARSE_POSE.c_str());
+        sub_coarse_pose = n.subscribe(COARSE_POSE, 1000, coarse_pose_callback);
     }
     ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
     ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);

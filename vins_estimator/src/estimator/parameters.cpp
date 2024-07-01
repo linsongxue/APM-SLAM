@@ -45,7 +45,10 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-
+std::string COARSE_POSE;
+std::string SP_CFG;
+std::string SP_WGT;
+std::string FEATURE_NAME;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -81,6 +84,10 @@ void readParameters(std::string config_file)
 
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
+    fsSettings["coarse_pose_topic"] >> COARSE_POSE;
+    fsSettings["superpoint_cfg"] >> SP_CFG;
+    fsSettings["superpoint_weight"] >> SP_WGT;
+    fsSettings["feature_name"] >> FEATURE_NAME;
     MAX_CNT = fsSettings["max_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];

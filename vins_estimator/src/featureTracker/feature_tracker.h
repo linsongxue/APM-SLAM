@@ -18,20 +18,49 @@
 #include <csignal>
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
+#include <unordered_map>
+#include <unordered_set>
+#include <iomanip>
+#include <H5Cpp.h>
 
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
 #include "camodocal/camera_models/PinholeCamera.h"
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
+#include "../superpoint/super_point.h"
+#include "../superpoint/super_glue.h"
 
 using namespace std;
 using namespace camodocal;
 using namespace Eigen;
+using namespace H5;
 
 bool inBorder(const cv::Point2f &pt);
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
 void reduceVector(vector<int> &v, vector<uchar> status);
+
+struct MapImage
+{
+    Eigen::Quaterniond Q_cw;
+    Eigen::Vector3d t_cw;
+    std::string image_name;
+    std::map<int, cv::Point2f> points2D;
+    std::vector<int> descriptors_idx;
+    std::unordered_map<int, Eigen::Vector3d> points3D_c;  // map point coordinate (3-dim) in cam frame
+    Eigen::Quaterniond Q_wc;
+    Eigen::Vector3d t_wc;
+
+    MapImage()
+    {
+        image_name = "";
+    }
+
+    bool operator==(const MapImage &other) const
+    {
+        return image_name == other.image_name;
+    }
+};
 
 class FeatureTracker
 {
@@ -39,6 +68,7 @@ public:
     FeatureTracker();
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     void setMask();
+    void setMapMask();
     void readIntrinsicParameter(const vector<string> &calib_file);
     void showUndistortion(const string &name);
     void rejectWithF();
@@ -58,6 +88,14 @@ public:
     void removeOutliers(set<int> &removePtsIds);
     cv::Mat getTrackImage();
     bool inBorder(const cv::Point2f &pt);
+    bool setPairs(const std::string &pair_path);
+    bool parsePoints3DTxt(const std::string &points3D_txt);
+    bool parseImagesTxt(const std::string &images_txt);
+    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImageWithMap(const string &img_name, double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    void projMapPointOF(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id);
+    void projMapPointNN(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id);
+    bool parseNNModel(const string &cfg, const string &weights);
+    bool parseMapDescrip(const string &filePath, const string &datasetName, Eigen::Matrix<double, 259, Eigen::Dynamic> &descriptors);
 
     int row, col;
     cv::Mat imTrack;
@@ -81,4 +119,21 @@ public:
     bool stereo_cam;
     int n_id;
     bool hasPrediction;
+    std::unordered_map<std::string, std::string> pairs;
+    std::string mapBaseDir;
+    // std::string ImgName;
+    // cv::Mat refImg;
+    std::unordered_map<int, Eigen::Vector3d> points3D;
+    std::unordered_map<int, double> points3D_error;
+    std::unordered_map<std::string, MapImage> images;
+    vector<int> map_ids, map_ids_right;
+    std::unordered_map<int, int> feature_mapp3d;
+    MapImage cur_refimg;
+    Eigen::Matrix3d coarse_R = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d coarse_t = Eigen::Vector3d::Zero();
+    bool estimate_T = false;
+    std::shared_ptr<SuperPoint> superpoint;
+    std::shared_ptr<SuperGlue> superglue;
+    std::mutex _gpu_mutex;
+    bool nn_model = false;
 };

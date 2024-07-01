@@ -10,6 +10,48 @@
 #include "estimator.h"
 #include "../utility/visualization.h"
 
+struct AbsPoseResidual{
+    AbsPoseResidual(const Eigen::Vector3d &const_position_)
+    {
+        const_position = const_position_;
+    }
+
+    template <typename T>
+    bool operator()(const T *const pose, T *residuals) const
+    {
+        // pose[0,1,2] is position x, y, z
+        // pose[3,4,5,6] is quaternion qx, qy, qz, qw
+
+        // position residual
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        Eigen::Map<Vec3T> residuals_eigen(residuals);
+        Vec3T position(pose[0], pose[1], pose[2]);
+        residuals_eigen = weight_.cast<T>().cwiseProduct(const_position.cast<T>() - position);
+
+        // quaternion residual
+        // T q[4] = {pose[6], pose[3], pose[4], pose[5]}; // qw, qx, qy, qz
+        // T observed_q[4] = {T(Q[3]), T(Q[0]), T(Q[1]), T(Q[2])};
+        // T q_conjugate[4] = {q[0], -q[1], -q[2], -q[3]};
+        // T q_diff[4];
+        // ceres::QuaternionProduct(q_conjugate, observed_q, q_diff);
+
+        // quaternion residual is
+        // residuals[3] = T(2.0) * q_diff[1];
+        // residuals[4] = T(2.0) * q_diff[2];
+        // residuals[5] = T(2.0) * q_diff[3];
+
+        return true;
+    }
+
+    static ceres::CostFunction *Create(const Eigen::Vector3d &absPose)
+    {
+        return new ceres::AutoDiffCostFunction<AbsPoseResidual, 3, 7>(new AbsPoseResidual(absPose));
+    }
+    Eigen::Vector3d weight_ = Eigen::Vector3d::Constant(1000.0);
+    Eigen::Vector3d const_position;
+    // double Q[4]; // x, y, z, w
+};
+
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");
@@ -157,6 +199,50 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
     }
 }
 
+void Estimator::inputImageWithMap(const string &img_name, double t, const cv::Mat &_img, const cv::Mat &_img1)
+{
+    inputImageCnt++;
+    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    TicToc featureTrackerTime;
+    if(_img1.empty())
+    {
+        featureFrame = featureTracker.trackImageWithMap(img_name, t, _img);
+    }
+    else
+    {
+        featureFrame = featureTracker.trackImageWithMap(img_name, t, _img, _img1);
+    }
+
+    if (SHOW_TRACK)
+    {
+        cv::Mat imgTrack = featureTracker.getTrackImage();
+        pubTrackImage(imgTrack, t);
+    }
+
+    if (MULTIPLE_THREAD)
+    {
+        if (inputImageCnt % 2 == 0)
+        {
+            mBuf.lock();
+            featureBuf.push(make_pair(t, featureFrame));
+            mapPointsIdBuf.push(make_pair(t, featureTracker.feature_mapp3d));
+            refMapImgBuf.push(featureTracker.cur_refimg);
+            mBuf.unlock();
+        }
+    }
+    else
+    {
+        mBuf.lock();
+        featureBuf.push(make_pair(t, featureFrame));
+        mapPointsIdBuf.push(make_pair(t, featureTracker.feature_mapp3d));
+        refMapImgBuf.push(featureTracker.cur_refimg);
+        mBuf.unlock();
+        TicToc processTime;
+        processMeasurements();
+        printf("process time: %f\n", processTime.toc());
+    }
+}
+
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
     inputImageCnt++;
@@ -277,6 +363,17 @@ void Estimator::processMeasurements()
         if(!featureBuf.empty())
         {
             feature = featureBuf.front();
+            // if(useMap)
+            // {
+            //     cur_feature_mapp3d = mapPointsIdBuf.front();
+            //     if(cur_feature_mapp3d.first != feature.first)
+            //     {
+            //         cout << "map id and feature id not matched" << endl;
+            //         exit(-1);
+            //     }
+            //     MapImage mapInfo = refMapImgBuf.front();
+            //     Refs[frame_count] = mapInfo;
+            // }
             curTime = feature.first + td;
             while(1)
             {
@@ -296,6 +393,11 @@ void Estimator::processMeasurements()
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
             featureBuf.pop();
+            // if(useMap)
+            // {
+            //     mapPointsIdBuf.pop();
+            //     refMapImgBuf.pop();
+            // }
             mBuf.unlock();
 
             if(USE_IMU)
@@ -412,6 +514,10 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 {
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
+    // if(useMap)
+    // {
+    //     f_manager.feature_mapp3d = cur_feature_mapp3d.second;
+    // }
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
     {
         marginalization_flag = MARGIN_OLD;
@@ -451,6 +557,19 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         }
     }
 
+    if(use_coare_pose)
+    {
+        Quaterniond qci = Quaterniond{ric[0]}.inverse();
+        Vector3d tci = qci * -tic[0];
+        CoarseOritation[frame_count] = coarse_camera_Q * qci;
+        CoarsePosition[frame_count] = coarse_camera_t + coarse_camera_Q * tci;
+        useCoarsePose[frame_count] = true;
+        use_coare_pose = false;
+    }
+    else
+    {
+        useCoarsePose[frame_count] = false;
+    }
     if (solver_flag == INITIAL)
     {
         // monocular + IMU initilization
@@ -1001,10 +1120,99 @@ bool Estimator::failureDetection()
     return false;
 }
 
+// void Estimator::looseCoupling()
+// {
+//     ceres::Problem problem;
+//     // for (int i = 0; i < frame_count + 1; i++)
+//     // {
+//     //     if (!useCoarsePose[i])
+//     //     {
+//     //         continue;
+//     //     }
+//     //     ceres::LocalParameterization *coarse_local_parameterization = new PoseLocalParameterization();
+//     //     problem.AddParameterBlock(para_CoarsePose[i], SIZE_POSE, coarse_local_parameterization);
+//     // }
+
+//     for (int i = 0; i < frame_count + 1; ++i)
+//     {
+//         if (!useCoarsePose[i])
+//         {
+//             continue;
+//         }
+//         ceres::CostFunction *abs_function = AbsPoseResidual::Create(para_CoarsePose[i]);
+//         problem.AddResidualBlock(abs_function, nullptr, para_Pose[i]);
+//     }
+
+//     ceres::Solver::Options options;
+
+//     options.linear_solver_type = ceres::DENSE_SCHUR;
+//     options.trust_region_strategy_type = ceres::DOGLEG;
+//     options.max_num_iterations = NUM_ITERATIONS;
+//     if (marginalization_flag == MARGIN_OLD)
+//         options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
+//     else
+//         options.max_solver_time_in_seconds = SOLVER_TIME;
+//     ceres::Solver::Summary summary;
+//     ceres::Solve(options, &problem, &summary);
+// }
+
 void Estimator::optimization()
 {
     TicToc t_whole, t_prepare;
     vector2double();
+    int cnt = 0;
+    for (int i = 0; i < frame_count + 1; i++)
+    {
+        if(!useCoarsePose[i])
+        {
+            continue;
+        }
+        cnt++;
+        para_CoarsePose[i][0] = CoarsePosition[i].x();
+        para_CoarsePose[i][1] = CoarsePosition[i].y();
+        para_CoarsePose[i][2] = CoarsePosition[i].z();
+        para_CoarsePose[i][3] = CoarseOritation[i].x();
+        para_CoarsePose[i][4] = CoarseOritation[i].y();
+        para_CoarsePose[i][5] = CoarseOritation[i].z();
+        para_CoarsePose[i][6] = CoarseOritation[i].w();
+    }
+    ROS_INFO("load %d coarse pose", cnt);
+    // TicToc graph_time;
+    // unordered_map<int, vector<int>> featureId_RefIds;
+    // vector<MapImage> refs_removeDuplicate;
+    // if(useMap)
+    // {
+    //     removeDuplicateRef(refs_removeDuplicate);
+    //     for (int i = 0; i < int(refs_removeDuplicate.size()); ++i)
+    //     {
+    //         para_RefPose[i][0] = refs_removeDuplicate[i].t_wc.x();
+    //         para_RefPose[i][1] = refs_removeDuplicate[i].t_wc.y();
+    //         para_RefPose[i][2] = refs_removeDuplicate[i].t_wc.z();
+    //         para_RefPose[i][3] = refs_removeDuplicate[i].Q_wc.x();
+    //         para_RefPose[i][4] = refs_removeDuplicate[i].Q_wc.y();
+    //         para_RefPose[i][5] = refs_removeDuplicate[i].Q_wc.z();
+    //         para_RefPose[i][6] = refs_removeDuplicate[i].Q_wc.w();
+    //     }
+    //     for (auto &it_per_id : f_manager.feature)
+    //     {
+    //         int p3d_id = it_per_id.mapPointId;
+    //         if(p3d_id == -1)
+    //         {
+    //             featureId_RefIds[it_per_id.feature_id].clear();
+    //             continue;
+    //         }
+    //         vector<int> ref_ids;
+    //         for (int i = 0; i < int(refs_removeDuplicate.size()); ++i)
+    //         {
+    //             if(refs_removeDuplicate[i].points3D_c.find(p3d_id) != refs_removeDuplicate[i].points3D_c.end())
+    //             {
+    //                 ref_ids.push_back(i);
+    //             }
+    //         }
+    //         featureId_RefIds[it_per_id.feature_id] = ref_ids;
+    //     }
+    // }
+    // ROS_DEBUG("graph size: %d, construct graph time: %f", int(refs_removeDuplicate.size()), graph_time.toc());
 
     ceres::Problem problem;
     ceres::LossFunction *loss_function;
@@ -1041,6 +1249,28 @@ void Estimator::optimization()
 
     if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
         problem.SetParameterBlockConstant(para_Td[0]);
+
+    for (int i = 0; i < frame_count + 1; ++i)
+    {
+        if (!useCoarsePose[i])
+        {
+            continue;
+        }
+        ceres::CostFunction *abs_function = AbsPoseResidual::Create(CoarsePosition[i]);
+        problem.AddResidualBlock(abs_function, nullptr, para_Pose[i]);
+    }
+
+    // if(useMap)
+    // {
+    //     for (int i = 0; i < int(refs_removeDuplicate.size()); ++i)
+    //     {
+    //         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
+    //         problem.AddParameterBlock(para_RefPose[i], SIZE_POSE, local_parameterization);
+    //         // ceres::CostFunction *abs_cost = AbsPoseResidual::Create(para_RefPose[i]);
+    //         // problem.AddResidualBlock(abs_cost, loss_function, para_RefPose[i]);
+    //         problem.SetParameterBlockConstant(para_RefPose[i]);
+    //     }
+    // }
 
     if (last_marginalization_info && last_marginalization_info->valid)
     {
@@ -1084,6 +1314,21 @@ void Estimator::optimization()
                 ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
                                                                  it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
                 problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
+                // if(useMap)
+                // {
+                //     unordered_map<int, vector<int>>::iterator it = featureId_RefIds.find(it_per_id.feature_id);
+                //     if (it != featureId_RefIds.end())
+                //     {
+                //         for(int &idx:it->second)
+                //         {
+                //             Vector3d pts_map = refs_removeDuplicate[idx].points3D_c[it_per_id.mapPointId];
+                //             pts_map /= pts_map.z();
+                //             ProjectionTwoFrameOneCamFactor *f_map = new ProjectionTwoFrameOneCamFactor(pts_i, pts_map, it_per_id.feature_per_frame[0].velocity, Vector2d::Zero(),
+                //                                                                                        it_per_id.feature_per_frame[0].cur_td, 0);
+                //             problem.AddResidualBlock(f_map, loss_function, para_Pose[imu_i], para_RefPose[idx], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
+                //         }
+                //     }
+                // }
             }
 
             if(STEREO && it_per_frame.is_stereo)
@@ -1129,9 +1374,18 @@ void Estimator::optimization()
     //cout << summary.BriefReport() << endl;
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
     //printf("solver costs: %f \n", t_solver.toc());
+    // looseCoupling();
 
     double2vector();
     //printf("frame_count: %d \n", frame_count);
+    for(int i = 0; i < frame_count + 1; ++i)
+    {
+        if(useCoarsePose[i])
+        {
+            CoarsePosition[i] = Vector3d(para_CoarsePose[i][0], para_CoarsePose[i][1], para_CoarsePose[i][2]);
+            CoarseOritation[i] = Quaterniond(para_CoarsePose[i][6], para_CoarsePose[i][3], para_CoarsePose[i][4], para_CoarsePose[i][5]);
+        }
+    }
 
     if(frame_count < WINDOW_SIZE)
         return;
@@ -1353,10 +1607,22 @@ void Estimator::slideWindow()
                     Bas[i].swap(Bas[i + 1]);
                     Bgs[i].swap(Bgs[i + 1]);
                 }
+                useCoarsePose[i] = useCoarsePose[i + 1];
+                CoarseOritation[i] = CoarseOritation[i + 1];
+                CoarsePosition[i] = CoarsePosition[i + 1];
+                // if(useMap)
+                // {
+                //     Refs[i] = Refs[i + 1];
+                // }
             }
             Headers[WINDOW_SIZE] = Headers[WINDOW_SIZE - 1];
             Ps[WINDOW_SIZE] = Ps[WINDOW_SIZE - 1];
             Rs[WINDOW_SIZE] = Rs[WINDOW_SIZE - 1];
+            useCoarsePose[WINDOW_SIZE] = useCoarsePose[WINDOW_SIZE-1];
+            // if (useMap)
+            // {
+            //     Refs[WINDOW_SIZE] = Refs[WINDOW_SIZE - 1];
+            // }
 
             if(USE_IMU)
             {
@@ -1389,6 +1655,13 @@ void Estimator::slideWindow()
             Headers[frame_count - 1] = Headers[frame_count];
             Ps[frame_count - 1] = Ps[frame_count];
             Rs[frame_count - 1] = Rs[frame_count];
+            CoarseOritation[frame_count - 1] = CoarseOritation[frame_count];
+            CoarsePosition[frame_count - 1] = CoarsePosition[frame_count];
+            useCoarsePose[frame_count - 1] = useCoarsePose[frame_count];
+            // if(useMap)
+            // {
+            //     Refs[frame_count - 1] = Refs[frame_count];
+            // }
 
             if(USE_IMU)
             {
@@ -1609,3 +1882,77 @@ void Estimator::updateLatestStates()
     }
     mPropagate.unlock();
 }
+
+// void draw_reproj(const string &base_dir, const unordered_map<std::string, MapImage> &images, const unordered_map<int, Eigen::Vector3d> &points)
+// {
+//     Eigen::Matrix3d K;
+//     K << 7.188560000000e+02, 0, 6.071928000000e+02, 0, 7.188560000000e+02, 1.852157000000e+02, 0, 0, 1;
+//     for (auto &it_img : images)
+//     {
+//         MapImage image = it_img.second;
+//         Eigen::Quaterniond Q = image.Q_cw;
+//         Eigen::Vector3d t = image.t_cw;
+//         cv::Mat img = cv::imread(base_dir + image.image_name, cv::IMREAD_COLOR);
+//         for (auto &pt : image.points2D)
+//         {
+//             int p3d_id = pt.first;
+//             cv::circle(img, pt.second, 5, cv::Scalar(0, 255, 0), 2);
+//             auto it = points.find(p3d_id);
+//             if (it != points.end())
+//             {
+//                 Eigen::Vector3d reproj = K * (Q * it->second + t);
+//                 reproj /= reproj.z();
+//                 cv::Point2f reproj_pt = cv::Point2f(static_cast<float>(reproj.x()), static_cast<float>(reproj.y()));
+//                 cv::circle(img, reproj_pt, 3, cv::Scalar(0, 0, 255), -1);
+//             }
+//         }
+//         cv::imwrite("/home/setsu/workspace/ORB_SLAM3/data/KITTI/data_odometry_gray/dataset/sequences/00/reproj/" + image.image_name, img);
+//     }
+// }
+
+// void Estimator::setMapInfo(const string &map_base_path)
+// {
+//     featureTracker.mapBaseDir = map_base_path + "/";
+//     string pairs_path = map_base_path + "/pairs.txt";
+//     string images_txt = map_base_path + "/images.txt";
+//     string points3D_txt = map_base_path + "/points3D.txt";
+
+//     bool pairSucc = featureTracker.setPairs(pairs_path);
+//     bool pointSucc = featureTracker.parsePoints3DTxt(points3D_txt);
+//     bool imgSucc = featureTracker.parseImagesTxt(images_txt);
+//     useMap = (pairSucc && pointSucc && imgSucc);
+//     f_manager.useMap = useMap;
+//     // draw_reproj(map_base_path + "map/", featureTracker.images, featureTracker.points3D);
+//     cout << "read pairs: " << pairs_path << endl;
+//     if (useMap)
+//     {
+//         cout << "use pre-built map" << endl;
+//     }
+//     else
+//     {
+//         cerr << "load pre-built map failed" << endl;
+//     }
+// }
+
+// void Estimator::removeDuplicateRef(vector<MapImage> &refs)
+// {
+//     for(int i = 0; i <= WINDOW_SIZE; ++i)
+//     {
+//         if(!Refs[i].image_name.empty())
+//         {
+//             bool remove = false;
+//             for (int j = 0; j < int(refs.size()); ++j)
+//             {
+//                 if (refs[j] == Refs[i])
+//                 {
+//                     remove = true;
+//                     break;
+//                 }
+//             }
+//             if (!remove)
+//             {
+//                 refs.push_back(Refs[i]);
+//             }
+//         }
+//     }
+// }

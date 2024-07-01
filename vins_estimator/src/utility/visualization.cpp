@@ -19,6 +19,10 @@ ros::Publisher pub_camera_pose;
 ros::Publisher pub_camera_pose_visual;
 nav_msgs::Path path;
 
+ros::Publisher pub_reference_odometry;
+ros::Publisher pub_reference_path;
+nav_msgs::Path reference_path;
+
 ros::Publisher pub_keyframe_pose;
 ros::Publisher pub_keyframe_point;
 ros::Publisher pub_extrinsic;
@@ -45,6 +49,8 @@ void registerPub(ros::NodeHandle &n)
     pub_keyframe_point = n.advertise<sensor_msgs::PointCloud>("keyframe_point", 1000);
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
     pub_image_track = n.advertise<sensor_msgs::Image>("image_track", 1000);
+    pub_reference_path = n.advertise<nav_msgs::Path>("opted_reference_path", 1000);
+    pub_reference_odometry = n.advertise<nav_msgs::Odometry>("opted_reference_odometry", 1000);
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
@@ -151,6 +157,34 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         path.header.frame_id = "world";
         path.poses.push_back(pose_stamped);
         pub_path.publish(path);
+
+        if(estimator.useCoarsePose[WINDOW_SIZE])
+        {
+            nav_msgs::Odometry odometry;
+            odometry.header = header;
+            odometry.header.frame_id = "world";
+            odometry.child_frame_id = "world";
+            odometry.pose.pose.position.x = estimator.CoarsePosition[WINDOW_SIZE].x();
+            odometry.pose.pose.position.y = estimator.CoarsePosition[WINDOW_SIZE].y();
+            odometry.pose.pose.position.z = estimator.CoarsePosition[WINDOW_SIZE].z();
+            odometry.pose.pose.orientation.x = estimator.CoarseOritation[WINDOW_SIZE].x();
+            odometry.pose.pose.orientation.y = estimator.CoarseOritation[WINDOW_SIZE].y();
+            odometry.pose.pose.orientation.z = estimator.CoarseOritation[WINDOW_SIZE].z();
+            odometry.pose.pose.orientation.w = estimator.CoarseOritation[WINDOW_SIZE].w();
+            odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
+            odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
+            odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+            pub_reference_odometry.publish(odometry);
+
+            geometry_msgs::PoseStamped pose_stamped;
+            pose_stamped.header = header;
+            pose_stamped.header.frame_id = "world";
+            pose_stamped.pose = odometry.pose.pose;
+            reference_path.header = header;
+            reference_path.header.frame_id = "world";
+            reference_path.poses.push_back(pose_stamped);
+            pub_reference_path.publish(reference_path);
+        }
 
         // write result to file
         ofstream foutC(VINS_RESULT_PATH, ios::app);

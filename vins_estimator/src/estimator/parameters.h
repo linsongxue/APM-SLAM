@@ -89,3 +89,8 @@ enum NoiseOrder
     O_AW = 6,
     O_GW = 9
 };
+
+extern std::string COARSE_POSE;
+extern std::string SP_CFG;
+extern std::string SP_WGT;
+extern std::string FEATURE_NAME;

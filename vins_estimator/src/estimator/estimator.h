@@ -19,6 +19,7 @@
 #include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <algorithm>
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -79,6 +80,21 @@ class Estimator
     void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity);
     bool IMUAvailable(double t);
     void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
+    void setCoarsePose(const Eigen::Vector3d &t, const Eigen::Quaterniond &Q)
+    {
+        use_coare_pose = true;
+        coarse_camera_t = t;
+        coarse_camera_Q = Q;
+    }
+    void looseCoupling();
+    void setMapInfo(const string &pairs_path);
+    void setNNInfo()
+    {
+        bool NNSucc = featureTracker.parseNNModel(SP_CFG, SP_WGT);
+        useNN = NNSucc;
+    }
+    void inputImageWithMap(const string &img_name, double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    void removeDuplicateRef(vector<MapImage> &refs);
 
     enum SolverFlag
     {
@@ -174,4 +190,19 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+    bool use_coare_pose = false;
+    bool useCoarsePose[(WINDOW_SIZE + 1)];
+    Eigen::Quaterniond CoarseOritation[(WINDOW_SIZE + 1)];
+    Eigen::Vector3d CoarsePosition[(WINDOW_SIZE + 1)];
+    double para_CoarsePose[(WINDOW_SIZE + 1)][SIZE_POSE];
+    Eigen::Vector3d coarse_camera_t;
+    Eigen::Quaterniond coarse_camera_Q;
+
+    bool useMap = false;
+    bool useNN = false;
+    queue<pair<double, unordered_map<int, int>>> mapPointsIdBuf;
+    queue<MapImage> refMapImgBuf;
+    pair<double, unordered_map<int, int>> cur_feature_mapp3d;
+    MapImage Refs[WINDOW_SIZE + 1];
+    double para_RefPose[WINDOW_SIZE + 1][SIZE_POSE];
 };
