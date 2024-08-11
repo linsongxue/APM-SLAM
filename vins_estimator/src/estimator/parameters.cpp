@@ -28,6 +28,7 @@ int ESTIMATE_TD;
 int ROLLING_SHUTTER;
 std::string EX_CALIB_RESULT_PATH;
 std::string VINS_RESULT_PATH;
+std::string VINS_RESULT_KITTI;
 std::string OUTPUT_FOLDER;
 std::string IMU_TOPIC;
 int ROW, COL;
@@ -46,9 +47,10 @@ double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
 std::string COARSE_POSE;
-std::string SP_CFG;
-std::string SP_WGT;
-std::string FEATURE_NAME;
+float REFERENCE_WEIGHT;
+float REFERENCE_CONFIDENCE;
+std::vector<float> MASK_VRANGE;
+std::vector<float> MASK_HRANGE;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -85,14 +87,15 @@ void readParameters(std::string config_file)
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
     fsSettings["coarse_pose_topic"] >> COARSE_POSE;
-    fsSettings["superpoint_cfg"] >> SP_CFG;
-    fsSettings["superpoint_weight"] >> SP_WGT;
-    fsSettings["feature_name"] >> FEATURE_NAME;
     MAX_CNT = fsSettings["max_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
+    REFERENCE_WEIGHT = fsSettings["reference_weight"];
+    REFERENCE_CONFIDENCE = fsSettings["reference_confidence"];
+    printf("REFERENCE_WEIGHT: %f\n", REFERENCE_WEIGHT);
+    printf("REFERENCE_CONFIDENCE: %f\n", REFERENCE_CONFIDENCE);
 
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
@@ -119,6 +122,29 @@ void readParameters(std::string config_file)
     std::cout << "result path " << VINS_RESULT_PATH << std::endl;
     std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
     fout.close();
+    VINS_RESULT_KITTI = OUTPUT_FOLDER + "/vio.txt";
+    std::cout << "result path with kitti format " << VINS_RESULT_KITTI << std::endl;
+    std::ofstream fout_kitti(VINS_RESULT_KITTI, std::ios::out);
+    fout_kitti.close();
+    if(!fsSettings["mask_vrange"].empty())
+    {
+        fsSettings["mask_vrange"] >> MASK_VRANGE;
+        if(MASK_VRANGE.size() != 2 || MASK_VRANGE[0] < 0.0 || MASK_VRANGE[1] > 1.0)
+        {
+            printf("modify the mask_vrange in the config file\n");
+            assert(0);
+        }
+    }
+
+    if (!fsSettings["mask_hrange"].empty())
+    {
+        fsSettings["mask_hrange"] >> MASK_VRANGE;
+        if (MASK_VRANGE.size() != 2 || MASK_VRANGE[0] < 0.0 || MASK_VRANGE[1] > 1.0)
+        {
+            printf("modify the mask_hrange in the config file\n");
+            assert(0);
+        }
+    }
 
     ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
     if (ESTIMATE_EXTRINSIC == 2)

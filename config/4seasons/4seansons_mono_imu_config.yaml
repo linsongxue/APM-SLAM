@@ -6,7 +6,7 @@ num_of_cam: 1
 
 imu_topic: "/imu0"
 image0_topic: "/cam0/image_raw"
-coarse_pose_topic: "/reference/camera/pose"
+# coarse_pose_topic: "/reference/camera/pose"
 output_path: "/home/setsu/Pictures/4SeansonsOut"
 
 cam0_calib: "cam.yaml"
@@ -21,6 +21,10 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
+   # data: [-0.99988522, -0.01352308,  0.00683216,  0.175412,
+   #        -0.00689095,  0.00430506, -0.99996699,  0.003689,
+   #         0.01349322, -0.99989929, -0.00439775, -0.058106,
+   #         0, 0, 0, 1]
    data: [-0.99988522, -0.00689095,  0.01349322,  0.17620132,
           -0.01352308,  0.00430506, -0.99989929, -0.05574392,
           0.00683216, -0.99996699, -0.00439775,  0.0022349,
@@ -47,8 +51,12 @@ acc_n: 0.1          # accelerometer measurement noise standard deviation. #0.2  
 gyr_n: 0.01         # gyroscope measurement noise standard deviation.     #0.05  0.004
 acc_w: 0.001         # accelerometer bias random work noise standard deviation.  #0.02
 gyr_w: 1.0e-4       # gyroscope bias random work noise standard deviation.     #4.0e-5
-g_norm: 9.81007     # gravity magnitude
+g_norm: 9.82007     # gravity magnitude
 
 #unsynchronization parameters
 estimate_td: 0                      # online estimate time offset between camera and imu
 td: 0.0                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
+
+reference_weight: 100.0
+reference_confidence: 0.1
+mask_vrange: [0.75, 1.00]

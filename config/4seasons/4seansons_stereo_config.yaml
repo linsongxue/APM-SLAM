@@ -64,7 +64,9 @@ g_norm: 9.81007     # gravity magnitude
 estimate_td: 0                      # online estimate time offset between camera and imu
 td: 0.0                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
-# #superpoint parameters
-# superpoint_cfg: "/home/setsu/workspace/catkin_ws/src/VINS-Fusion/config/SuperPointCfg/config.yaml"
-# superpoint_weight: "/home/setsu/workspace/catkin_ws/src/VINS-Fusion/config/SuperPointWeights"
-# feature_name: "feats-superpoint-n4096-rmax1600.h5"
+# map parameters
+reference_weight: 10.0
+reference_confidence: 0.5
+
+# mask parameters
+mask_vrange: [0.75, 1.00]

@@ -42,6 +42,7 @@ extern double SOLVER_TIME;
 extern int NUM_ITERATIONS;
 extern std::string EX_CALIB_RESULT_PATH;
 extern std::string VINS_RESULT_PATH;
+extern std::string VINS_RESULT_KITTI;
 extern std::string OUTPUT_FOLDER;
 extern std::string IMU_TOPIC;
 extern double TD;
@@ -63,6 +64,10 @@ extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
+extern float REFERENCE_WEIGHT;
+extern float REFERENCE_CONFIDENCE;
+extern std::vector<float> MASK_VRANGE;
+extern std::vector<float> MASK_HRANGE;
 
 void readParameters(std::string config_file);
 

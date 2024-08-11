@@ -55,6 +55,19 @@ FeatureTracker::FeatureTracker()
 void FeatureTracker::setMask()
 {
     mask = cv::Mat(row, col, CV_8UC1, cv::Scalar(255));
+    if(MASK_VRANGE.size() > 0)
+    {
+        int start_row = static_cast<int>(row * MASK_VRANGE[0]);
+        int end_row = static_cast<int>(row * MASK_VRANGE[1]);
+        cv::rectangle(mask, cv::Point(0, start_row), cv::Point(col, end_row), cv::Scalar(0), -1);
+    }
+
+    if (MASK_HRANGE.size() > 0)
+    {
+        int start_col = static_cast<int>(col * MASK_HRANGE[0]);
+        int end_col = static_cast<int>(col * MASK_HRANGE[1]);
+        cv::rectangle(mask, cv::Point(start_col, 0), cv::Point(end_col, row), cv::Scalar(0), -1);
+    }
 
     // prefer to keep features that are tracked for long time
     vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;

@@ -147,13 +147,32 @@ void sync_process()
             m_pose_buf.unlock();
             if(got_coarse_pose)
             {
-                // ROS_DEBUG("Quaternion: [x: %f, y: %f, z: %f, w: %f]", coarse_quaternion.w(), coarse_quaternion.x(), coarse_quaternion.y(), coarse_quaternion.z());
-                // ROS_DEBUG("Position: [x: %f, y: %f, z: %f]", coarse_position.x(), coarse_position.y(), coarse_position.z());
                 estimator.setCoarsePose(coarse_position, coarse_quaternion);
             }
             // end recieve pose data
             if(!image0.empty())
+            {
                 estimator.inputImage(time, image0, image1);
+                // write result to file with kitti format
+                ofstream foutKitti(VINS_RESULT_KITTI, ios::app);
+                foutKitti.setf(ios::fixed, ios::floatfield);
+                foutKitti.precision(5);
+                Eigen::Matrix<double, 4, 4> pose;
+                estimator.getPoseInWorldFrame(pose);
+                foutKitti << pose(0, 0) << " "
+                          << pose(0, 1) << " "
+                          << pose(0, 2) << " "
+                          << pose(0, 3) << " "
+                          << pose(1, 0) << " "
+                          << pose(1, 1) << " "
+                          << pose(1, 2) << " "
+                          << pose(1, 3) << " "
+                          << pose(2, 0) << " "
+                          << pose(2, 1) << " "
+                          << pose(2, 2) << " "
+                          << pose(2, 3) << endl;
+                foutKitti.close();
+            }
         }
         else
         {
@@ -191,13 +210,32 @@ void sync_process()
             m_pose_buf.unlock();
             if (got_coarse_pose)
             {
-                // ROS_DEBUG("Quaternion: [x: %f, y: %f, z: %f, w: %f]", coarse_quaternion.w(), coarse_quaternion.x(), coarse_quaternion.y(), coarse_quaternion.z());
-                // ROS_DEBUG("Position: [x: %f, y: %f, z: %f]", coarse_position.x(), coarse_position.y(), coarse_position.z());
                 estimator.setCoarsePose(coarse_position, coarse_quaternion);
             }
             // end recieve pose data
             if(!image.empty())
+            {
                 estimator.inputImage(time, image);
+                // write result to file with kitti format
+                ofstream foutKitti(VINS_RESULT_KITTI, ios::app);
+                foutKitti.setf(ios::fixed, ios::floatfield);
+                foutKitti.precision(5);
+                Eigen::Matrix<double, 4, 4> pose;
+                estimator.getPoseInWorldFrame(pose);
+                foutKitti << pose(0, 0) << " "
+                          << pose(0, 1) << " "
+                          << pose(0, 2) << " "
+                          << pose(0, 3) << " "
+                          << pose(1, 0) << " "
+                          << pose(1, 1) << " "
+                          << pose(1, 2) << " "
+                          << pose(1, 3) << " "
+                          << pose(2, 0) << " "
+                          << pose(2, 1) << " "
+                          << pose(2, 2) << " "
+                          << pose(2, 3) << endl;
+                foutKitti.close();
+            }
         }
 
         std::chrono::milliseconds dura(2);
