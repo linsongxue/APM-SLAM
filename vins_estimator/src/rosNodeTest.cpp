@@ -156,7 +156,7 @@ void sync_process()
                 // write result to file with kitti format
                 ofstream foutKitti(VINS_RESULT_KITTI, ios::app);
                 foutKitti.setf(ios::fixed, ios::floatfield);
-                foutKitti.precision(5);
+                foutKitti.precision(7);
                 Eigen::Matrix<double, 4, 4> pose;
                 estimator.getPoseInWorldFrame(pose);
                 foutKitti << pose(0, 0) << " "

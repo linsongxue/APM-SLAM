@@ -7,7 +7,7 @@ num_of_cam: 2
 imu_topic: ""
 image0_topic: ""
 image1_topic: ""
-output_path: "/home/tony-ws1/output/"
+output_path: "/home/setsu/workspace/ORB_SLAM3/data/KITTI/devkit_odometry/KITTI_odometry_evaluation_tool/data/"
 
 cam0_calib: "cam_10_03.yaml"
 cam1_calib: "cam_10_03.yaml"

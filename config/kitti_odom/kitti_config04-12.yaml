@@ -7,7 +7,7 @@ num_of_cam: 2
 imu_topic: ""
 image0_topic: "/leftImage"
 image1_topic: "/rightImage"
-output_path: "/home/setsu/Pictures/kittiOut"
+output_path: "/home/setsu/workspace/catkin_ws"
 
 cam0_calib: "cam04-12.yaml"
 cam1_calib: "cam04-12.yaml"
@@ -63,3 +63,7 @@ g_norm: 9.81007     # gravity magnitude
 estimate_td: 0                      # online estimate time offset between camera and imu
 td: 0.0                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
+#loop closure parameters
+load_previous_pose_graph: 1       # load and reuse previous pose graph; load from 'pose_graph_save_path'
+pose_graph_save_path: "/home/setsu/workspace/catkin_ws/pose_graph/" # save and load path
+save_image: 0      

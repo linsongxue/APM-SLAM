@@ -542,6 +542,8 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     {
         Quaterniond qci = Quaterniond{ric[0]}.inverse();
         Vector3d tci = qci * -tic[0];
+        Rs[frame_count] = coarse_camera_Q.toRotationMatrix();
+        Ps[frame_count] = coarse_camera_t;
         CoarseOritation[frame_count] = coarse_camera_Q * qci;
         CoarsePosition[frame_count] = coarse_camera_t + coarse_camera_Q * tci;
         useCoarsePose[frame_count] = true;

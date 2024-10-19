@@ -143,18 +143,33 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 
 
     // write result to file
-    std::ofstream foutC("/home/tony-ws1/output/vio_global.csv", ios::app);
+    std::ofstream foutC("/home/setsu/workspace/catkin_ws/vio_global.txt", ios::app);
     foutC.setf(ios::fixed, ios::floatfield);
-    foutC.precision(0);
-    foutC << pose_msg->header.stamp.toSec() * 1e9 << ",";
-    foutC.precision(5);
-    foutC << global_t.x() << ","
-            << global_t.y() << ","
-            << global_t.z() << ","
-            << global_q.w() << ","
-            << global_q.x() << ","
-            << global_q.y() << ","
-            << global_q.z() << endl;
+    // foutC.precision(0);
+    // foutC << pose_msg->header.stamp.toSec() * 1e9 << ",";
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    T.block<3, 3>(0, 0) = global_q.toRotationMatrix();
+    T.block<3, 1>(0, 3) = global_t;
+    foutC.precision(7);
+    // foutC << global_t.x() << ","
+    //         << global_t.y() << ","
+    //         << global_t.z() << ","
+    //         << global_q.w() << ","
+    //         << global_q.x() << ","
+    //         << global_q.y() << ","
+    //         << global_q.z() << endl;
+    foutC << T(0, 0) << " "
+          << T(0, 1) << " "
+          << T(0, 2) << " "
+          << T(0, 3) << " "
+          << T(1, 0) << " "
+          << T(1, 1) << " "
+          << T(1, 2) << " "
+          << T(1, 3) << " "
+          << T(2, 0) << " "
+          << T(2, 1) << " "
+          << T(2, 2) << " "
+          << T(2, 3) << endl;
     foutC.close();
 }
 
