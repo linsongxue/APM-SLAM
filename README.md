@@ -37,8 +37,8 @@ You need to modify the CMakeLists.txt of every package to reset **"Ceres_DIR"**,
 
 ## 3. 4Seasons Example
 
-### Prepare data
-Download [Formatted 4Seasons map metadata, rosbag from]() to YOUR_DATASET_FOLDER. Download the [undistorted images](https://cvg.cit.tum.de/data/datasets/4seasons-dataset/download) to YOUR_DATASET_FOLDER. The dataset format should look like
+### 3.0 Prepare data
+Download [Formatted 4Seasons map metadata, rosbag (extraction code: m58y)](https://pan.baidu.com/s/14P4JZnir0PIWzPho37wveQ?pwd=m58y) to YOUR_DATASET_FOLDER. Download the [undistorted images](https://cvg.cit.tum.de/data/datasets/4seasons-dataset/download) to YOUR_DATASET_FOLDER. The dataset format should look like
 ```
 YOUR_DATASET_FOLDER
 ├── recording_2020-03-24_17-45-31
