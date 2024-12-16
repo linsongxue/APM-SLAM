@@ -111,5 +111,20 @@ public:
 	bool has_loop;
 	int loop_index;
 	Eigen::Matrix<double, 8, 1 > loop_info;
-};
 
+	string nanosecond;
+	Eigen::Matrix3d R_w_vl;
+	Eigen::Vector3d T_w_vl;
+	vector<int> map_pts3d_id;
+	vector<cv::Point2f> map_pts2d;
+	vector<cv::Point2f> map_pts2d_norm;
+	vector<cv::Point3f> map_pts3d;
+	bool VL_res_succ = false;
+	bool VL_res_valid = false;
+	// string save_img_path;
+
+	Eigen::Matrix3d R_optimal;
+	Eigen::Vector3d T_optimal;
+	vector<double> cur_errors;
+	vector<double> depths;
+};

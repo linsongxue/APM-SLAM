@@ -32,6 +32,7 @@
 #include "pose_graph.h"
 #include "utility/CameraPoseVisualization.h"
 #include "parameters.h"
+#include "map_localization.h"
 #define SKIP_FIRST_CNT 10
 using namespace std;
 
@@ -67,11 +68,18 @@ ros::Publisher pub_odometry_rect;
 std::string BRIEF_PATTERN_FILE;
 std::string POSE_GRAPH_SAVE_PATH;
 std::string VINS_RESULT_PATH;
+// std::string VISUAL_LOC_PATH;
+// std::string VALID_LOC_PATH;
+std::string MAP_LOCALIZATION_PATH;
+// std::string DEBUG_FILE_PATH;
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 Eigen::Vector3d last_t(-100, -100, -100);
 double last_image_time = -1;
 
 ros::Publisher pub_point_cloud, pub_margin_cloud;
+
+MapLocalization map_localization;
+std::string SFM_MAP_PATH;
 
 void new_sequence()
 {
@@ -362,9 +370,12 @@ void process()
 
                 KeyFrame* keyframe = new KeyFrame(pose_msg->header.stamp.toSec(), frame_index, T, R, image,
                                    point_3d, point_2d_uv, point_2d_normal, point_id, sequence);   
+                keyframe->nanosecond = to_string(pose_msg->header.stamp.toNSec());
+                // keyframe->save_img_path = "/home/setsu/workspace/catkin_ws/addition/debug/request/" + keyframe->nanosecond + ".png";
                 m_process.lock();
                 start_flag = 1;
-                posegraph.addKeyFrame(keyframe, 1);
+                // posegraph.addKeyFrame(keyframe, 1);
+                map_localization.addKeyFrame(keyframe);
                 m_process.unlock();
                 frame_index++;
                 last_t = T;
@@ -402,7 +413,8 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "loop_fusion");
     ros::NodeHandle n("~");
     posegraph.registerPub(n);
-    
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
+
     VISUALIZATION_SHIFT_X = 0;
     VISUALIZATION_SHIFT_Y = 0;
     SKIP_CNT = 0;
@@ -453,15 +465,34 @@ int main(int argc, char **argv)
     fsSettings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;
     fsSettings["output_path"] >> VINS_RESULT_PATH;
     fsSettings["save_image"] >> DEBUG_IMAGE;
+    fsSettings["sfm_map_path"] >> SFM_MAP_PATH;
 
     LOAD_PREVIOUS_POSE_GRAPH = fsSettings["load_previous_pose_graph"];
+    // VISUAL_LOC_PATH = VINS_RESULT_PATH + "/visual_loc.csv";
+    // VALID_LOC_PATH = VINS_RESULT_PATH + "/valid_loc.csv";
+    MAP_LOCALIZATION_PATH = VINS_RESULT_PATH + "/map_localization.csv";
+    // DEBUG_FILE_PATH = VINS_RESULT_PATH + "/debug.txt";
     VINS_RESULT_PATH = VINS_RESULT_PATH + "/vio_loop.csv";
     std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
     fout.close();
 
+    // std::ofstream foutVisualLoc(VISUAL_LOC_PATH, std::ios::out);
+    // foutVisualLoc.close();
+
+    // std::ofstream foutValidLoc(VALID_LOC_PATH, std::ios::out);
+    // foutValidLoc.close();
+
+    std::ofstream foutMapLocalization(MAP_LOCALIZATION_PATH, std::ios::out);
+    foutMapLocalization.close();
+
+    // std::ofstream foutDebug(DEBUG_FILE_PATH, std::ios::out);
+    // foutDebug.close();
+
     int USE_IMU = fsSettings["imu"];
     posegraph.setIMUFlag(USE_IMU);
     fsSettings.release();
+
+    map_localization.prepare_process(n, cam0Path, SFM_MAP_PATH);
 
     if (LOAD_PREVIOUS_POSE_GRAPH)
     {

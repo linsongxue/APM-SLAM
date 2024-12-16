@@ -46,12 +46,12 @@ void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
     m_buf.unlock();
 }
 
-void coarse_pose_callback(const geometry_msgs::PoseStamped::ConstPtr &pose_msg)
-{
-    m_pose_buf.lock();
-    coarse_pose_buf.push(pose_msg);
-    m_pose_buf.unlock();
-}
+// void coarse_pose_callback(const geometry_msgs::PoseStamped::ConstPtr &pose_msg)
+// {
+//     m_pose_buf.lock();
+//     coarse_pose_buf.push(pose_msg);
+//     m_pose_buf.unlock();
+// }
 
 cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 {
@@ -97,6 +97,7 @@ void sync_process()
             cv::Mat image0, image1;
             std_msgs::Header header;
             double time = 0;
+            string nanosecond;
             m_buf.lock();
             if (!img0_buf.empty() && !img1_buf.empty())
             {
@@ -117,6 +118,7 @@ void sync_process()
                 {
                     time = img0_buf.front()->header.stamp.toSec();
                     header = img0_buf.front()->header;
+                    nanosecond = to_string(img0_buf.front()->header.stamp.toNSec());
                     image0 = getImageFromMsg(img0_buf.front());
                     img0_buf.pop();
                     image1 = getImageFromMsg(img1_buf.front());
@@ -126,33 +128,33 @@ void sync_process()
             }
             m_buf.unlock();
             // recieve pose data
-            Eigen::Vector3d coarse_position;
-            Eigen::Quaterniond coarse_quaternion;
-            bool got_coarse_pose = false;
-            m_pose_buf.lock();
-            while(!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
-            {
-                coarse_pose_buf.pop();
-            }
-            if (!coarse_pose_buf.empty())
-            {
-                double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
-                if(abs(pose_time - time) < 0.05)
-                {
-                    getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
-                    coarse_pose_buf.pop();
-                    got_coarse_pose = true;
-                }
-            }
-            m_pose_buf.unlock();
-            if(got_coarse_pose)
-            {
-                estimator.setCoarsePose(coarse_position, coarse_quaternion);
-            }
+            // Eigen::Vector3d coarse_position;
+            // Eigen::Quaterniond coarse_quaternion;
+            // bool got_coarse_pose = false;
+            // m_pose_buf.lock();
+            // while(!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
+            // {
+            //     coarse_pose_buf.pop();
+            // }
+            // if (!coarse_pose_buf.empty())
+            // {
+            //     double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
+            //     if(abs(pose_time - time) < 0.05)
+            //     {
+            //         getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
+            //         coarse_pose_buf.pop();
+            //         got_coarse_pose = true;
+            //     }
+            // }
+            // m_pose_buf.unlock();
+            // if(got_coarse_pose)
+            // {
+            //     estimator.setCoarsePose(coarse_position, coarse_quaternion);
+            // }
             // end recieve pose data
             if(!image0.empty())
             {
-                estimator.inputImage(time, image0, image1);
+                estimator.inputImage(nanosecond, time, image0, image1);
                 // write result to file with kitti format
                 ofstream foutKitti(VINS_RESULT_KITTI, ios::app);
                 foutKitti.setf(ios::fixed, ios::floatfield);
@@ -179,43 +181,45 @@ void sync_process()
             cv::Mat image;
             std_msgs::Header header;
             double time = 0;
+            string nanosecond;
             m_buf.lock();
             if(!img0_buf.empty())
             {
                 time = img0_buf.front()->header.stamp.toSec();
+                nanosecond = to_string(img0_buf.front()->header.stamp.toNSec());
                 header = img0_buf.front()->header;
                 image = getImageFromMsg(img0_buf.front());
                 img0_buf.pop();
             }
             m_buf.unlock();
             // recieve pose data
-            Eigen::Vector3d coarse_position;
-            Eigen::Quaterniond coarse_quaternion;
-            bool got_coarse_pose = false;
-            m_pose_buf.lock();
-            while (!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
-            {
-                coarse_pose_buf.pop();
-            }
-            if (!coarse_pose_buf.empty())
-            {
-                double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
-                if (abs(pose_time - time) < 0.05)
-                {
-                    getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
-                    coarse_pose_buf.pop();
-                    got_coarse_pose = true;
-                }
-            }
-            m_pose_buf.unlock();
-            if (got_coarse_pose)
-            {
-                estimator.setCoarsePose(coarse_position, coarse_quaternion);
-            }
+            // Eigen::Vector3d coarse_position;
+            // Eigen::Quaterniond coarse_quaternion;
+            // bool got_coarse_pose = false;
+            // m_pose_buf.lock();
+            // while (!coarse_pose_buf.empty() && coarse_pose_buf.front()->header.stamp.toSec() < time)
+            // {
+            //     coarse_pose_buf.pop();
+            // }
+            // if (!coarse_pose_buf.empty())
+            // {
+            //     double pose_time = coarse_pose_buf.front()->header.stamp.toSec();
+            //     if (abs(pose_time - time) < 0.05)
+            //     {
+            //         getPoseFromMsg(coarse_pose_buf.front(), coarse_position, coarse_quaternion);
+            //         coarse_pose_buf.pop();
+            //         got_coarse_pose = true;
+            //     }
+            // }
+            // m_pose_buf.unlock();
+            // if (got_coarse_pose)
+            // {
+            //     estimator.setCoarsePose(coarse_position, coarse_quaternion);
+            // }
             // end recieve pose data
             if(!image.empty())
             {
-                estimator.inputImage(time, image);
+                estimator.inputImage(nanosecond, time, image);
                 // write result to file with kitti format
                 ofstream foutKitti(VINS_RESULT_KITTI, ios::app);
                 foutKitti.setf(ios::fixed, ios::floatfield);
@@ -374,11 +378,11 @@ int main(int argc, char **argv)
         sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
     }
     ros::Subscriber sub_coarse_pose;
-    if(!COARSE_POSE.empty())
-    {
-        ROS_INFO("start recieve reference pose from %s", COARSE_POSE.c_str());
-        sub_coarse_pose = n.subscribe(COARSE_POSE, 1000, coarse_pose_callback);
-    }
+    // if(!COARSE_POSE.empty())
+    // {
+    //     ROS_INFO("start recieve reference pose from %s", COARSE_POSE.c_str());
+    //     sub_coarse_pose = n.subscribe(COARSE_POSE, 1000, coarse_pose_callback);
+    // }
     ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
     ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
     ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);

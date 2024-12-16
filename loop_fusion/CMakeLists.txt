@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     camera_models
     cv_bridge
     roslib
-    )
+    rospy)
 
 find_package(OpenCV)
 
@@ -23,14 +23,35 @@ find_package(Ceres REQUIRED)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
 
+set(colmap_DIR "/home/setsu/workspace/colmap/build/installed/share/colmap")
+find_package(colmap REQUIRED)
+
+add_service_files(
+  FILES
+  QueryToMatch.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
+catkin_package(CATKIN_DEPENDS cv_bridge nav_msgs roscpp rospy std_msgs message_runtime)
+
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS}  ${EIGEN3_INCLUDE_DIR})
 
 catkin_package()
+
+catkin_install_python(PROGRAMS
+  scripts/server.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 add_executable(loop_fusion_node
     src/pose_graph_node.cpp
     src/pose_graph.cpp
     src/keyframe.cpp
+    src/map_localization.cpp
     src/utility/CameraPoseVisualization.cpp
     src/ThirdParty/DBoW/BowVector.cpp
     src/ThirdParty/DBoW/FBrief.cpp
@@ -43,4 +64,5 @@ add_executable(loop_fusion_node
     src/ThirdParty/VocabularyBinary.cpp
     )
 
-target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES}) 
+target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES} colmap::colmap) 
+add_dependencies(loop_fusion_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

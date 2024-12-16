@@ -46,9 +46,9 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-std::string COARSE_POSE;
-float REFERENCE_WEIGHT;
-float REFERENCE_CONFIDENCE;
+// std::string COARSE_POSE;
+// float REFERENCE_WEIGHT;
+// float REFERENCE_CONFIDENCE;
 std::vector<float> MASK_VRANGE;
 std::vector<float> MASK_HRANGE;
 
@@ -86,16 +86,16 @@ void readParameters(std::string config_file)
 
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
-    fsSettings["coarse_pose_topic"] >> COARSE_POSE;
+    // fsSettings["coarse_pose_topic"] >> COARSE_POSE;
     MAX_CNT = fsSettings["max_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
-    REFERENCE_WEIGHT = fsSettings["reference_weight"];
-    REFERENCE_CONFIDENCE = fsSettings["reference_confidence"];
-    printf("REFERENCE_WEIGHT: %f\n", REFERENCE_WEIGHT);
-    printf("REFERENCE_CONFIDENCE: %f\n", REFERENCE_CONFIDENCE);
+    // REFERENCE_WEIGHT = fsSettings["reference_weight"];
+    // REFERENCE_CONFIDENCE = fsSettings["reference_confidence"];
+    // printf("REFERENCE_WEIGHT: %f\n", REFERENCE_WEIGHT);
+    // printf("REFERENCE_CONFIDENCE: %f\n", REFERENCE_CONFIDENCE);
 
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 

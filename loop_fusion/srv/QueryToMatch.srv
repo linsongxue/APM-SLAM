@@ -1,0 +1,9 @@
+string query_name
+float32[3] candidate_pos
+---
+int32 num_pairs
+int32 num_points
+float32[] pts2d
+int32[] match0_ids
+int32[] match0
+float32[] score0

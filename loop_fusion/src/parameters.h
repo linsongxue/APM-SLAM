@@ -33,5 +33,8 @@ extern int ROW;
 extern int COL;
 extern std::string VINS_RESULT_PATH;
 extern int DEBUG_IMAGE;
-
-
+extern std::string COLMAP_DATABASE_PATH;
+// extern std::string VISUAL_LOC_PATH;
+// extern std::string VALID_LOC_PATH;
+extern std::string MAP_LOCALIZATION_PATH;
+// extern std::string DEBUG_FILE_PATH;

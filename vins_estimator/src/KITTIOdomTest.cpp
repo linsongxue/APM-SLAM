@@ -103,8 +103,9 @@ int main(int argc, char** argv)
 			pubRightImage.publish(imRightMsg);
 
 
-			estimator.inputImage(imageTimeList[i], imLeft, imRight);
-			
+			string nanosecond = to_string(imLeftMsg->header.stamp.sec) + to_string(imLeftMsg->header.stamp.nsec);
+			estimator.inputImage(nanosecond, imageTimeList[i], imLeft, imRight);
+
 			Eigen::Matrix<double, 4, 4> pose;
 			estimator.getPoseInWorldFrame(pose);
 			if(outFile != NULL)

@@ -1,0 +1,25 @@
+<launch>
+    <!-- 启动第一个节点 -->
+    <arg name="dataset" value="/home/setsu/workspace/ORB_SLAM3/data/4Seasons/recording_2020-04-07_10-20-32" />
+    <arg name="outputs" value="/home/setsu/workspace/ORB_SLAM3/data/4Seasons/recording_2020-03-24_17-36-22/sfm_map/metadata" />
+    <arg name="config_file" value="/home/setsu/workspace/catkin_ws/src/VINS-Fusion/config/4seasons/4seansons_mono_imu_config.yaml" />
+
+    <node pkg="loop_fusion" type="server.py" name="match_server" output="screen">
+        <param name="dataset" value="$(arg dataset)" />
+        <param name="outputs" value="$(arg outputs)" />
+    </node>
+
+    <node pkg="roslaunch" type="roslaunch-check" name="wait_30s_1" args="python -c 'import time; time.sleep(30)'"/>
+
+    <!-- 启动第二个节点 -->
+    <node pkg="loop_fusion" type="loop_fusion_node" name="loop_fusion" args="$(arg config_file)" output="screen"/>
+
+    <node pkg="roslaunch" type="roslaunch-check" name="wait_30s_2" args="python -c 'import time; time.sleep(30)'"/>
+
+    <node pkg="vins" type="vins_node" name="vins_estimator" args="$(arg config_file)" output="screen"/>
+
+    <node pkg="roslaunch" type="roslaunch-check" name="wait_30s_3" args="python -c 'import time; time.sleep(30)'"/>
+
+    <!-- 使用 rosbag play 播放 bag 文件 -->
+    <node pkg="rosbag" type="play" name="rosbag_play" args="/home/setsu/workspace/ORB_SLAM3/data/4Seasons/recording_2020-04-07_10-20-32/rosbag_inter1.bag" output="screen" />
+</launch>

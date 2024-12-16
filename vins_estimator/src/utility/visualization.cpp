@@ -158,50 +158,50 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         path.poses.push_back(pose_stamped);
         pub_path.publish(path);
 
-        if(estimator.useCoarsePose[WINDOW_SIZE])
-        {
-            nav_msgs::Odometry odometry;
-            odometry.header = header;
-            odometry.header.frame_id = "world";
-            odometry.child_frame_id = "world";
-            odometry.pose.pose.position.x = estimator.CoarsePosition[WINDOW_SIZE].x();
-            odometry.pose.pose.position.y = estimator.CoarsePosition[WINDOW_SIZE].y();
-            odometry.pose.pose.position.z = estimator.CoarsePosition[WINDOW_SIZE].z();
-            odometry.pose.pose.orientation.x = estimator.CoarseOritation[WINDOW_SIZE].x();
-            odometry.pose.pose.orientation.y = estimator.CoarseOritation[WINDOW_SIZE].y();
-            odometry.pose.pose.orientation.z = estimator.CoarseOritation[WINDOW_SIZE].z();
-            odometry.pose.pose.orientation.w = estimator.CoarseOritation[WINDOW_SIZE].w();
-            odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
-            odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
-            odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
-            pub_reference_odometry.publish(odometry);
+        // if(estimator.useCoarsePose[WINDOW_SIZE])
+        // {
+        //     nav_msgs::Odometry odometry;
+        //     odometry.header = header;
+        //     odometry.header.frame_id = "world";
+        //     odometry.child_frame_id = "world";
+        //     odometry.pose.pose.position.x = estimator.CoarsePosition[WINDOW_SIZE].x();
+        //     odometry.pose.pose.position.y = estimator.CoarsePosition[WINDOW_SIZE].y();
+        //     odometry.pose.pose.position.z = estimator.CoarsePosition[WINDOW_SIZE].z();
+        //     odometry.pose.pose.orientation.x = estimator.CoarseOritation[WINDOW_SIZE].x();
+        //     odometry.pose.pose.orientation.y = estimator.CoarseOritation[WINDOW_SIZE].y();
+        //     odometry.pose.pose.orientation.z = estimator.CoarseOritation[WINDOW_SIZE].z();
+        //     odometry.pose.pose.orientation.w = estimator.CoarseOritation[WINDOW_SIZE].w();
+        //     odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
+        //     odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
+        //     odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+        //     pub_reference_odometry.publish(odometry);
 
-            geometry_msgs::PoseStamped pose_stamped;
-            pose_stamped.header = header;
-            pose_stamped.header.frame_id = "world";
-            pose_stamped.pose = odometry.pose.pose;
-            reference_path.header = header;
-            reference_path.header.frame_id = "world";
-            reference_path.poses.push_back(pose_stamped);
-            pub_reference_path.publish(reference_path);
-        }
+        //     geometry_msgs::PoseStamped pose_stamped;
+        //     pose_stamped.header = header;
+        //     pose_stamped.header.frame_id = "world";
+        //     pose_stamped.pose = odometry.pose.pose;
+        //     reference_path.header = header;
+        //     reference_path.header.frame_id = "world";
+        //     reference_path.poses.push_back(pose_stamped);
+        //     pub_reference_path.publish(reference_path);
+        // }
 
         // write result to file
         ofstream foutC(VINS_RESULT_PATH, ios::app);
         foutC.setf(ios::fixed, ios::floatfield);
-        foutC.precision(0);
-        foutC << header.stamp.toSec() * 1e9 << ",";
         foutC.precision(5);
-        foutC << estimator.Ps[WINDOW_SIZE].x() << ","
-              << estimator.Ps[WINDOW_SIZE].y() << ","
-              << estimator.Ps[WINDOW_SIZE].z() << ","
-              << tmp_Q.w() << ","
-              << tmp_Q.x() << ","
-              << tmp_Q.y() << ","
-              << tmp_Q.z() << ","
-              << estimator.Vs[WINDOW_SIZE].x() << ","
-              << estimator.Vs[WINDOW_SIZE].y() << ","
-              << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
+        foutC << header.stamp.toSec() << " ";
+        foutC.precision(5);
+        foutC << estimator.Ps[WINDOW_SIZE].x() << " "
+              << estimator.Ps[WINDOW_SIZE].y() << " "
+              << estimator.Ps[WINDOW_SIZE].z() << " "
+              << tmp_Q.x() << " "
+              << tmp_Q.y() << " "
+              << tmp_Q.z() << " "
+              << tmp_Q.w() << endl;
+        //   << estimator.Vs[WINDOW_SIZE].x() << " "
+        //   << estimator.Vs[WINDOW_SIZE].y() << " "
+        //   << estimator.Vs[WINDOW_SIZE].z() << endl;
         foutC.close();
         Eigen::Vector3d tmp_T = estimator.Ps[WINDOW_SIZE];
         printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(),
@@ -399,7 +399,11 @@ void pubKeyframe(const Estimator &estimator)
         Quaterniond R = Quaterniond(estimator.Rs[i]);
 
         nav_msgs::Odometry odometry;
-        odometry.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
+        // odometry.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
+        string nanosecond = estimator.HeadersNanosecond[WINDOW_SIZE - 2];
+        int sec = std::stoi(nanosecond.substr(0, 10));
+        int nsec = std::stoi(nanosecond.substr(10, 9));
+        odometry.header.stamp = ros::Time(sec, nsec);
         odometry.header.frame_id = "world";
         odometry.pose.pose.position.x = P.x();
         odometry.pose.pose.position.y = P.y();
@@ -414,7 +418,8 @@ void pubKeyframe(const Estimator &estimator)
 
 
         sensor_msgs::PointCloud point_cloud;
-        point_cloud.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
+        // point_cloud.header.stamp = ros::Time(estimator.Headers[WINDOW_SIZE - 2]);
+        point_cloud.header.stamp = ros::Time(sec, nsec);
         point_cloud.header.frame_id = "world";
         for (auto &it_per_id : estimator.f_manager.feature)
         {

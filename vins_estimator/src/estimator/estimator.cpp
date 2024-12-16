@@ -10,88 +10,88 @@
 #include "estimator.h"
 #include "../utility/visualization.h"
 
-struct AbsRotationResidual
-{
-    AbsRotationResidual(const Eigen::Quaterniond &const_rotation_)
-    {
-        const_rotation = const_rotation_;
-    }
+// struct AbsRotationResidual
+// {
+//     AbsRotationResidual(const Eigen::Quaterniond &const_rotation_)
+//     {
+//         const_rotation = const_rotation_;
+//     }
 
-    template <typename T>
-    bool operator()(const T *const pose, T *residuals) const
-    {
-        // pose[0,1,2] is position x, y, z
-        // pose[3,4,5,6] is quaternion qx, qy, qz, qw
+//     template <typename T>
+//     bool operator()(const T *const pose, T *residuals) const
+//     {
+//         // pose[0,1,2] is position x, y, z
+//         // pose[3,4,5,6] is quaternion qx, qy, qz, qw
 
-        // position residual
-        Eigen::Quaternion<T> rotation(pose[6], pose[3], pose[4], pose[5]);
-        T src_Q[4];
-        src_Q[0] = pose[6];
-        src_Q[1] = pose[3];
-        src_Q[2] = pose[4];
-        src_Q[3] = pose[5];
+//         // position residual
+//         Eigen::Quaternion<T> rotation(pose[6], pose[3], pose[4], pose[5]);
+//         T src_Q[4];
+//         src_Q[0] = pose[6];
+//         src_Q[1] = pose[3];
+//         src_Q[2] = pose[4];
+//         src_Q[3] = pose[5];
 
-        T tgt_Q[4];
-        tgt_Q[0] = T(const_rotation.w());
-        tgt_Q[1] = T(-const_rotation.x());
-        tgt_Q[2] = T(-const_rotation.y());
-        tgt_Q[3] = T(-const_rotation.z());
+//         T tgt_Q[4];
+//         tgt_Q[0] = T(const_rotation.w());
+//         tgt_Q[1] = T(-const_rotation.x());
+//         tgt_Q[2] = T(-const_rotation.y());
+//         tgt_Q[3] = T(-const_rotation.z());
 
-        T error_1[4];
-        ceres::QuaternionProduct(tgt_Q, src_Q, error_1);
-        residuals[0] = T(weight) * T(2) * error_1[1] / T(AbsRotationResidual::variance);
-        residuals[1] = T(weight) * T(2) * error_1[2] / T(AbsRotationResidual::variance);
-        residuals[2] = T(weight) * T(2) * error_1[3] / T(AbsRotationResidual::variance);
+//         T error_1[4];
+//         ceres::QuaternionProduct(tgt_Q, src_Q, error_1);
+//         residuals[0] = T(weight) * T(2) * error_1[1] / T(AbsRotationResidual::variance);
+//         residuals[1] = T(weight) * T(2) * error_1[2] / T(AbsRotationResidual::variance);
+//         residuals[2] = T(weight) * T(2) * error_1[3] / T(AbsRotationResidual::variance);
 
-        return true;
-    }
+//         return true;
+//     }
 
-    static ceres::CostFunction *Create(const Eigen::Quaterniond &absRotation)
-    {
-        return new ceres::AutoDiffCostFunction<AbsRotationResidual, 3, 7>(new AbsRotationResidual(absRotation));
-    }
+//     static ceres::CostFunction *Create(const Eigen::Quaterniond &absRotation)
+//     {
+//         return new ceres::AutoDiffCostFunction<AbsRotationResidual, 3, 7>(new AbsRotationResidual(absRotation));
+//     }
 
-    Eigen::Quaterniond const_rotation;
-    static float weight;
-    static float variance;
-};
+//     Eigen::Quaterniond const_rotation;
+//     static float weight;
+//     static float variance;
+// };
 
-struct AbsPositionResidual
-{
-    AbsPositionResidual(const Eigen::Vector3d &const_position_)
-    {
-        const_position = const_position_;
-    }
+// struct AbsPositionResidual
+// {
+//     AbsPositionResidual(const Eigen::Vector3d &const_position_)
+//     {
+//         const_position = const_position_;
+//     }
 
-    template <typename T>
-    bool operator()(const T *const pose, T *residuals) const
-    {
-        // pose[0,1,2] is position x, y, z
-        // pose[3,4,5,6] is quaternion qx, qy, qz, qw
+//     template <typename T>
+//     bool operator()(const T *const pose, T *residuals) const
+//     {
+//         // pose[0,1,2] is position x, y, z
+//         // pose[3,4,5,6] is quaternion qx, qy, qz, qw
 
-        // position residual
-        using Vec3T = Eigen::Matrix<T, 3, 1>;
-        Eigen::Map<Vec3T> residuals_eigen(residuals);
-        Vec3T position(pose[0], pose[1], pose[2]);
-        Eigen::Matrix3d sqrt_info = covariance.inverse().llt().matrixL().transpose();
-        residuals_eigen = weight.cast<T>().cwiseProduct(sqrt_info.cast<T>() * (const_position.cast<T>() - position));
+//         // position residual
+//         using Vec3T = Eigen::Matrix<T, 3, 1>;
+//         Eigen::Map<Vec3T> residuals_eigen(residuals);
+//         Vec3T position(pose[0], pose[1], pose[2]);
+//         Eigen::Matrix3d sqrt_info = covariance.inverse().llt().matrixL().transpose();
+//         residuals_eigen = weight.cast<T>().cwiseProduct(sqrt_info.cast<T>() * (const_position.cast<T>() - position));
 
-        return true;
-    }
+//         return true;
+//     }
 
-    static ceres::CostFunction *Create(const Eigen::Vector3d &absPosition)
-    {
-        return new ceres::AutoDiffCostFunction<AbsPositionResidual, 3, 7>(new AbsPositionResidual(absPosition));
-    }
-    Eigen::Vector3d const_position;
-    static Eigen::Vector3d weight;
-    static Eigen::Matrix3d covariance;
-};
+//     static ceres::CostFunction *Create(const Eigen::Vector3d &absPosition)
+//     {
+//         return new ceres::AutoDiffCostFunction<AbsPositionResidual, 3, 7>(new AbsPositionResidual(absPosition));
+//     }
+//     Eigen::Vector3d const_position;
+//     static Eigen::Vector3d weight;
+//     static Eigen::Matrix3d covariance;
+// };
 
-Eigen::Matrix3d AbsPositionResidual::covariance;
-Eigen::Vector3d AbsPositionResidual::weight;
-float AbsRotationResidual::weight;
-float AbsRotationResidual::variance;
+// Eigen::Matrix3d AbsPositionResidual::covariance;
+// Eigen::Vector3d AbsPositionResidual::weight;
+// float AbsRotationResidual::weight;
+// float AbsRotationResidual::variance;
 
 Estimator::Estimator(): f_manager{Rs}
 {
@@ -188,10 +188,10 @@ void Estimator::setParameter()
     ProjectionTwoFrameOneCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionTwoFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-    AbsPositionResidual::covariance = REFERENCE_CONFIDENCE * REFERENCE_CONFIDENCE * Matrix3d::Identity();
-    AbsPositionResidual::weight = REFERENCE_WEIGHT * Vector3d::Ones();
-    AbsRotationResidual::weight = REFERENCE_WEIGHT;
-    AbsRotationResidual::variance = REFERENCE_CONFIDENCE;
+    // AbsPositionResidual::covariance = REFERENCE_CONFIDENCE * REFERENCE_CONFIDENCE * Matrix3d::Identity();
+    // AbsPositionResidual::weight = REFERENCE_WEIGHT * Vector3d::Ones();
+    // AbsRotationResidual::weight = REFERENCE_WEIGHT;
+    // AbsRotationResidual::variance = REFERENCE_CONFIDENCE;
     td = TD;
     g = G;
     cout << "set g " << g.transpose() << endl;
@@ -244,7 +244,7 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
     }
 }
 
-void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
+void Estimator::inputImage(string &nanosecond, double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
     inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
@@ -268,6 +268,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
         {
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
+            nanosecondBuf.push(nanosecond);
             mBuf.unlock();
         }
     }
@@ -275,6 +276,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     {
         mBuf.lock();
         featureBuf.push(make_pair(t, featureFrame));
+        nanosecondBuf.push(nanosecond);
         mBuf.unlock();
         TicToc processTime;
         processMeasurements();
@@ -361,9 +363,11 @@ void Estimator::processMeasurements()
         //printf("process measurments\n");
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
         vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
+        string nanosecond;
         if(!featureBuf.empty())
         {
             feature = featureBuf.front();
+            nanosecond = nanosecondBuf.front();
             curTime = feature.first + td;
             while(1)
             {
@@ -383,6 +387,7 @@ void Estimator::processMeasurements()
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
             featureBuf.pop();
+            nanosecondBuf.pop();
             mBuf.unlock();
 
             if(USE_IMU)
@@ -402,7 +407,7 @@ void Estimator::processMeasurements()
                 }
             }
             mProcess.lock();
-            processImage(feature.second, feature.first);
+            processImage(feature.second, feature.first, nanosecond);
             prevTime = curTime;
 
             printStatistics(*this, 0);
@@ -495,7 +500,7 @@ void Estimator::processIMU(double t, double dt, const Vector3d &linear_accelerat
     gyr_0 = angular_velocity; 
 }
 
-void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header)
+void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header, const string nanosecond)
 {
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
@@ -514,6 +519,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     ROS_DEBUG("Solving %d", frame_count);
     ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
     Headers[frame_count] = header;
+    HeadersNanosecond[frame_count] = nanosecond;
 
     ImageFrame imageframe(image, header);
     imageframe.pre_integration = tmp_pre_integration;
@@ -538,21 +544,21 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         }
     }
 
-    if(use_coare_pose)
-    {
-        Quaterniond qci = Quaterniond{ric[0]}.inverse();
-        Vector3d tci = qci * -tic[0];
-        Rs[frame_count] = coarse_camera_Q.toRotationMatrix();
-        Ps[frame_count] = coarse_camera_t;
-        CoarseOritation[frame_count] = coarse_camera_Q * qci;
-        CoarsePosition[frame_count] = coarse_camera_t + coarse_camera_Q * tci;
-        useCoarsePose[frame_count] = true;
-        use_coare_pose = false;
-    }
-    else
-    {
-        useCoarsePose[frame_count] = false;
-    }
+    // if(use_coare_pose)
+    // {
+    //     Quaterniond qci = Quaterniond{ric[0]}.inverse();
+    //     Vector3d tci = qci * -tic[0];
+    //     Rs[frame_count] = coarse_camera_Q.toRotationMatrix();
+    //     Ps[frame_count] = coarse_camera_t;
+    //     CoarseOritation[frame_count] = coarse_camera_Q * qci;
+    //     CoarsePosition[frame_count] = coarse_camera_t + coarse_camera_Q * tci;
+    //     useCoarsePose[frame_count] = true;
+    //     use_coare_pose = false;
+    // }
+    // else
+    // {
+    //     useCoarsePose[frame_count] = false;
+    // }
     if (solver_flag == INITIAL)
     {
         // monocular + IMU initilization
@@ -1107,23 +1113,23 @@ void Estimator::optimization()
 {
     TicToc t_whole, t_prepare;
     vector2double();
-    int cnt = 0;
-    for (int i = 0; i < frame_count + 1; i++)
-    {
-        if(!useCoarsePose[i])
-        {
-            continue;
-        }
-        cnt++;
-        // para_CoarsePose[i][0] = CoarsePosition[i].x();
-        // para_CoarsePose[i][1] = CoarsePosition[i].y();
-        // para_CoarsePose[i][2] = CoarsePosition[i].z();
-        // para_CoarsePose[i][3] = CoarseOritation[i].x();
-        // para_CoarsePose[i][4] = CoarseOritation[i].y();
-        // para_CoarsePose[i][5] = CoarseOritation[i].z();
-        // para_CoarsePose[i][6] = CoarseOritation[i].w();
-    }
-    ROS_INFO("load %d coarse pose", cnt);
+    // int cnt = 0;
+    // for (int i = 0; i < frame_count + 1; i++)
+    // {
+    //     if(!useCoarsePose[i])
+    //     {
+    //         continue;
+    //     }
+    //     cnt++;
+    //     // para_CoarsePose[i][0] = CoarsePosition[i].x();
+    //     // para_CoarsePose[i][1] = CoarsePosition[i].y();
+    //     // para_CoarsePose[i][2] = CoarsePosition[i].z();
+    //     // para_CoarsePose[i][3] = CoarseOritation[i].x();
+    //     // para_CoarsePose[i][4] = CoarseOritation[i].y();
+    //     // para_CoarsePose[i][5] = CoarseOritation[i].z();
+    //     // para_CoarsePose[i][6] = CoarseOritation[i].w();
+    // }
+    // ROS_INFO("load %d coarse pose", cnt);
 
     ceres::Problem problem;
     ceres::LossFunction *loss_function;
@@ -1161,18 +1167,18 @@ void Estimator::optimization()
     if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
         problem.SetParameterBlockConstant(para_Td[0]);
 
-    for (int i = 0; i < frame_count + 1; ++i)
-    {
-        if (!useCoarsePose[i])
-        {
-            continue;
-        }
-        ceres::CostFunction *absPos_function = AbsPositionResidual::Create(CoarsePosition[i]);
-        problem.AddResidualBlock(absPos_function, nullptr, para_Pose[i]);
+    // for (int i = 0; i < frame_count + 1; ++i)
+    // {
+    //     if (!useCoarsePose[i])
+    //     {
+    //         continue;
+    //     }
+    //     ceres::CostFunction *absPos_function = AbsPositionResidual::Create(CoarsePosition[i]);
+    //     problem.AddResidualBlock(absPos_function, nullptr, para_Pose[i]);
 
-        ceres::CostFunction *absOri_function = AbsRotationResidual::Create(CoarseOritation[i]);
-        problem.AddResidualBlock(absOri_function, nullptr, para_Pose[i]);
-    }
+    //     ceres::CostFunction *absOri_function = AbsRotationResidual::Create(CoarseOritation[i]);
+    //     problem.AddResidualBlock(absOri_function, nullptr, para_Pose[i]);
+    // }
 
     if (last_marginalization_info && last_marginalization_info->valid)
     {
@@ -1480,6 +1486,7 @@ void Estimator::slideWindow()
             for (int i = 0; i < WINDOW_SIZE; i++)
             {
                 Headers[i] = Headers[i + 1];
+                HeadersNanosecond[i] = HeadersNanosecond[i + 1];
                 Rs[i].swap(Rs[i + 1]);
                 Ps[i].swap(Ps[i + 1]);
                 if(USE_IMU)
@@ -1494,16 +1501,17 @@ void Estimator::slideWindow()
                     Bas[i].swap(Bas[i + 1]);
                     Bgs[i].swap(Bgs[i + 1]);
                 }
-                useCoarsePose[i] = useCoarsePose[i + 1];
-                CoarseOritation[i] = CoarseOritation[i + 1];
-                CoarsePosition[i] = CoarsePosition[i + 1];
+                // useCoarsePose[i] = useCoarsePose[i + 1];
+                // CoarseOritation[i] = CoarseOritation[i + 1];
+                // CoarsePosition[i] = CoarsePosition[i + 1];
             }
             Headers[WINDOW_SIZE] = Headers[WINDOW_SIZE - 1];
+            HeadersNanosecond[WINDOW_SIZE] = HeadersNanosecond[WINDOW_SIZE - 1];
             Ps[WINDOW_SIZE] = Ps[WINDOW_SIZE - 1];
             Rs[WINDOW_SIZE] = Rs[WINDOW_SIZE - 1];
-            useCoarsePose[WINDOW_SIZE] = useCoarsePose[WINDOW_SIZE-1];
-            CoarseOritation[WINDOW_SIZE] = CoarseOritation[WINDOW_SIZE - 1];
-            CoarsePosition[WINDOW_SIZE] = CoarsePosition[WINDOW_SIZE - 1];
+            // useCoarsePose[WINDOW_SIZE] = useCoarsePose[WINDOW_SIZE-1];
+            // CoarseOritation[WINDOW_SIZE] = CoarseOritation[WINDOW_SIZE - 1];
+            // CoarsePosition[WINDOW_SIZE] = CoarsePosition[WINDOW_SIZE - 1];
 
             if(USE_IMU)
             {
@@ -1534,11 +1542,12 @@ void Estimator::slideWindow()
         if (frame_count == WINDOW_SIZE)
         {
             Headers[frame_count - 1] = Headers[frame_count];
+            HeadersNanosecond[frame_count - 1] = HeadersNanosecond[frame_count];
             Ps[frame_count - 1] = Ps[frame_count];
             Rs[frame_count - 1] = Rs[frame_count];
-            CoarseOritation[frame_count - 1] = CoarseOritation[frame_count];
-            CoarsePosition[frame_count - 1] = CoarsePosition[frame_count];
-            useCoarsePose[frame_count - 1] = useCoarsePose[frame_count];
+            // CoarseOritation[frame_count - 1] = CoarseOritation[frame_count];
+            // CoarsePosition[frame_count - 1] = CoarsePosition[frame_count];
+            // useCoarsePose[frame_count - 1] = useCoarsePose[frame_count];
 
             if(USE_IMU)
             {

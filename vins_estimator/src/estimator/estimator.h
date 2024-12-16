@@ -49,9 +49,9 @@ class Estimator
     void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
     void inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity);
     void inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame);
-    void inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    void inputImage(string &nanosecond, double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     void processIMU(double t, double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
-    void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header);
+    void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header, const string nanosecond);
     void processMeasurements();
     void changeSensorType(int use_imu, int use_stereo);
 
@@ -80,12 +80,12 @@ class Estimator
     void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity);
     bool IMUAvailable(double t);
     void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
-    void setCoarsePose(const Eigen::Vector3d &t, const Eigen::Quaterniond &Q)
-    {
-        use_coare_pose = true;
-        coarse_camera_t = t;
-        coarse_camera_Q = Q;
-    }
+    // void setCoarsePose(const Eigen::Vector3d &t, const Eigen::Quaterniond &Q)
+    // {
+    //     use_coare_pose = true;
+    //     coarse_camera_t = t;
+    //     coarse_camera_Q = Q;
+    // }
 
     enum SolverFlag
     {
@@ -105,6 +105,7 @@ class Estimator
     queue<pair<double, Eigen::Vector3d>> accBuf;
     queue<pair<double, Eigen::Vector3d>> gyrBuf;
     queue<pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > > featureBuf;
+    queue<string> nanosecondBuf;
     double prevTime, curTime;
     bool openExEstimation;
 
@@ -130,6 +131,7 @@ class Estimator
     Matrix3d back_R0, last_R, last_R0;
     Vector3d back_P0, last_P, last_P0;
     double Headers[(WINDOW_SIZE + 1)];
+    string HeadersNanosecond[(WINDOW_SIZE + 1)];
 
     IntegrationBase *pre_integrations[(WINDOW_SIZE + 1)];
     Vector3d acc_0, gyr_0;
@@ -181,12 +183,12 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
-    bool use_coare_pose = false;
-    bool useCoarsePose[(WINDOW_SIZE + 1)];
-    Eigen::Quaterniond CoarseOritation[(WINDOW_SIZE + 1)];
-    Eigen::Vector3d CoarsePosition[(WINDOW_SIZE + 1)];
-    double para_CoarsePose[(WINDOW_SIZE + 1)][SIZE_POSE];
-    Eigen::Vector3d coarse_camera_t;
-    Eigen::Quaterniond coarse_camera_Q;
+    // bool use_coare_pose = false;
+    // bool useCoarsePose[(WINDOW_SIZE + 1)];
+    // Eigen::Quaterniond CoarseOritation[(WINDOW_SIZE + 1)];
+    // Eigen::Vector3d CoarsePosition[(WINDOW_SIZE + 1)];
+    // double para_CoarsePose[(WINDOW_SIZE + 1)][SIZE_POSE];
+    // Eigen::Vector3d coarse_camera_t;
+    // Eigen::Quaterniond coarse_camera_Q;
     
 };

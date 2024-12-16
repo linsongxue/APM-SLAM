@@ -45,8 +45,8 @@ KeyFrame::KeyFrame(double _time_stamp, int _index, Vector3d &_vio_T_w_i, Matrix3
 	has_fast_point = false;
 	loop_info << 0, 0, 0, 0, 0, 0, 0, 0;
 	sequence = _sequence;
-	computeWindowBRIEFPoint();
-	computeBRIEFPoint();
+	// computeWindowBRIEFPoint();
+	// computeBRIEFPoint();
 	if(!DEBUG_IMAGE)
 		image.release();
 }

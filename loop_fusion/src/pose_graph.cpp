@@ -189,11 +189,10 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
         loop_path_file  << P.x() << " "
               << P.y() << " "
               << P.z() << " "
-              << Q.w() << " "
               << Q.x() << " "
               << Q.y() << " "
-              << Q.z()
-              << endl;
+              << Q.z() << " "
+              << Q.w() << endl;
         loop_path_file.close();
     }
     //draw local connection

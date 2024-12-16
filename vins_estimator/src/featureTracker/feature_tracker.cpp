@@ -558,541 +558,541 @@ cv::Mat FeatureTracker::getTrackImage()
     return imTrack;
 }
 
-struct ErrorRankIdPt
-{
-    double error;
-    int rank;
-    int map_id;
-    cv::Point2f pts;
-};
+// struct ErrorRankIdPt
+// {
+//     double error;
+//     int rank;
+//     int map_id;
+//     cv::Point2f pts;
+// };
 
-bool FeatureTracker::setPairs(const std::string &pair_path)
-{
-    std::ifstream file(pair_path);
-    std::string line;
+// bool FeatureTracker::setPairs(const std::string &pair_path)
+// {
+//     std::ifstream file(pair_path);
+//     std::string line;
 
-    if (file.is_open())
-    {
-        while (getline(file, line))
-        {
-            std::istringstream iss(line);
-            std::string str1, str2;
-            if (iss >> str1 >> str2)
-            { 
-                pairs[str1] = str2; 
-            }
-        }
-        file.close();
-        return true;
-    }
-    else
-    {
-        std::cerr << "Unable to open Pair file" << std::endl;
-        return false;
-    }
-}
+//     if (file.is_open())
+//     {
+//         while (getline(file, line))
+//         {
+//             std::istringstream iss(line);
+//             std::string str1, str2;
+//             if (iss >> str1 >> str2)
+//             { 
+//                 pairs[str1] = str2; 
+//             }
+//         }
+//         file.close();
+//         return true;
+//     }
+//     else
+//     {
+//         std::cerr << "Unable to open Pair file" << std::endl;
+//         return false;
+//     }
+// }
 
-bool FeatureTracker::parsePoints3DTxt(const std::string &points3D_txt)
-{
-    points3D.clear();
-    std::ifstream file(points3D_txt);
-    std::string line;
+// bool FeatureTracker::parsePoints3DTxt(const std::string &points3D_txt)
+// {
+//     points3D.clear();
+//     std::ifstream file(points3D_txt);
+//     std::string line;
 
-    if (file.is_open())
-    {
-        while (getline(file, line))
-        {
-            if (line[0] == '#' || line.empty())
-                continue; // skip comment and space line
-            std::istringstream iss(line);
-            int idx;
-            double x, y, z;
-            double r, g, b, error;
-            if (!(iss >> idx >> x >> y >> z >> r >> g >> b >> error))
-            {
-                continue;
-            }
-            Eigen::Vector3d p(x, y, z);
-            points3D[idx] = p;
-            points3D_error[idx] = error;
-        }
-        file.close();
-        return true;
-    }
-    else
-    {
-        std::cerr << "Unable to open points file" << std::endl;
-        return false;
-    }
-}
+//     if (file.is_open())
+//     {
+//         while (getline(file, line))
+//         {
+//             if (line[0] == '#' || line.empty())
+//                 continue; // skip comment and space line
+//             std::istringstream iss(line);
+//             int idx;
+//             double x, y, z;
+//             double r, g, b, error;
+//             if (!(iss >> idx >> x >> y >> z >> r >> g >> b >> error))
+//             {
+//                 continue;
+//             }
+//             Eigen::Vector3d p(x, y, z);
+//             points3D[idx] = p;
+//             points3D_error[idx] = error;
+//         }
+//         file.close();
+//         return true;
+//     }
+//     else
+//     {
+//         std::cerr << "Unable to open points file" << std::endl;
+//         return false;
+//     }
+// }
 
-bool FeatureTracker::parseImagesTxt(const std::string &images_txt)
-{
-    std::ifstream file(images_txt);
-    std::string line;
+// bool FeatureTracker::parseImagesTxt(const std::string &images_txt)
+// {
+//     std::ifstream file(images_txt);
+//     std::string line;
 
-    if (file.is_open())
-    {
-        while (std::getline(file, line))
-        {
-            if (line[0] == '#' || line.empty())
-                continue; // skip comment and space line
-            std::istringstream iss(line);
-            MapImage imgData;
-            int imgId, camId;
-            double qw, qx, qy, qz, tx, ty, tz;
-            std::string imgName;
-            // analyze image data
-            if (!(iss >> imgId >> qw >> qx >> qy >> qz >> tx >> ty >> tz >> camId >> imgName))
-            {
-                continue; // not match, skip
-            }
-            imgData.image_name = imgName;
-            imgData.Q_cw = Eigen::Quaterniond(qw, qx, qy, qz);
-            imgData.t_cw = Eigen::Vector3d(tx, ty, tz);
-            imgData.Q_wc = imgData.Q_cw.inverse();
-            imgData.t_wc = imgData.Q_wc * -imgData.t_cw;
-            // get POINTS2D data
-            if (std::getline(file, line))
-            {
-                std::istringstream pointsStream(line);
-                float x, y;
-                int point3D_id;
-                vector<ErrorRankIdPt> error_rank_id_pts;
-                // analyze POINTS2D data
-                int descriptor_id = 0;
-                while (pointsStream >> x >> y >> point3D_id)
-                {
-                    if (point3D_id != -1)
-                    { // ignore point POINT3D_ID == -1
-                        // imgData.points2D[point3D_id] = cv::Point2f(x, y);
-                        ErrorRankIdPt point_info;
-                        point_info.error = points3D_error[point3D_id];
-                        point_info.rank = descriptor_id;
-                        point_info.map_id = point3D_id;
-                        point_info.pts = cv::Point2f(x - 0.5, y - 0.5);
-                        error_rank_id_pts.push_back(point_info);
-                    }
-                    descriptor_id++;
-                }
-                // sort by decline the error
-                sort(error_rank_id_pts.begin(), error_rank_id_pts.end(), [](const ErrorRankIdPt &a, const ErrorRankIdPt &b)
-                     { return a.error < b.error; });
-                imgData.descriptors_idx.clear();
-                for (int i = 0; i < error_rank_id_pts.size(); ++i)
-                {
-                    // key: points3D id
-                    // value: points2D coordination in current image
-                    ErrorRankIdPt it = error_rank_id_pts[i];
-                    imgData.points2D[it.map_id] = it.pts;
-                    Eigen::Vector3d p_c = imgData.Q_cw * points3D[it.map_id] + imgData.t_cw;
-                    imgData.points3D_c[it.map_id] = p_c;
-                    imgData.descriptors_idx.push_back(it.rank);
-                }
-            }
-            images[imgName] = imgData;
-        }
-        file.close();
-        return true;
-    }
-    else
-    {
-        std::cerr << "Unable to open images file" << std::endl;
-        return false;
-    }
-}
+//     if (file.is_open())
+//     {
+//         while (std::getline(file, line))
+//         {
+//             if (line[0] == '#' || line.empty())
+//                 continue; // skip comment and space line
+//             std::istringstream iss(line);
+//             MapImage imgData;
+//             int imgId, camId;
+//             double qw, qx, qy, qz, tx, ty, tz;
+//             std::string imgName;
+//             // analyze image data
+//             if (!(iss >> imgId >> qw >> qx >> qy >> qz >> tx >> ty >> tz >> camId >> imgName))
+//             {
+//                 continue; // not match, skip
+//             }
+//             imgData.image_name = imgName;
+//             imgData.Q_cw = Eigen::Quaterniond(qw, qx, qy, qz);
+//             imgData.t_cw = Eigen::Vector3d(tx, ty, tz);
+//             imgData.Q_wc = imgData.Q_cw.inverse();
+//             imgData.t_wc = imgData.Q_wc * -imgData.t_cw;
+//             // get POINTS2D data
+//             if (std::getline(file, line))
+//             {
+//                 std::istringstream pointsStream(line);
+//                 float x, y;
+//                 int point3D_id;
+//                 vector<ErrorRankIdPt> error_rank_id_pts;
+//                 // analyze POINTS2D data
+//                 int descriptor_id = 0;
+//                 while (pointsStream >> x >> y >> point3D_id)
+//                 {
+//                     if (point3D_id != -1)
+//                     { // ignore point POINT3D_ID == -1
+//                         // imgData.points2D[point3D_id] = cv::Point2f(x, y);
+//                         ErrorRankIdPt point_info;
+//                         point_info.error = points3D_error[point3D_id];
+//                         point_info.rank = descriptor_id;
+//                         point_info.map_id = point3D_id;
+//                         point_info.pts = cv::Point2f(x - 0.5, y - 0.5);
+//                         error_rank_id_pts.push_back(point_info);
+//                     }
+//                     descriptor_id++;
+//                 }
+//                 // sort by decline the error
+//                 sort(error_rank_id_pts.begin(), error_rank_id_pts.end(), [](const ErrorRankIdPt &a, const ErrorRankIdPt &b)
+//                      { return a.error < b.error; });
+//                 imgData.descriptors_idx.clear();
+//                 for (int i = 0; i < error_rank_id_pts.size(); ++i)
+//                 {
+//                     // key: points3D id
+//                     // value: points2D coordination in current image
+//                     ErrorRankIdPt it = error_rank_id_pts[i];
+//                     imgData.points2D[it.map_id] = it.pts;
+//                     Eigen::Vector3d p_c = imgData.Q_cw * points3D[it.map_id] + imgData.t_cw;
+//                     imgData.points3D_c[it.map_id] = p_c;
+//                     imgData.descriptors_idx.push_back(it.rank);
+//                 }
+//             }
+//             images[imgName] = imgData;
+//         }
+//         file.close();
+//         return true;
+//     }
+//     else
+//     {
+//         std::cerr << "Unable to open images file" << std::endl;
+//         return false;
+//     }
+// }
 
-/*
-select new track points
-*/
-void FeatureTracker::projMapPointOF(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id)
-{
-    vector<cv::Point2f> map_pts;
-    vector<uchar> status;
-    vector<float> err;
-    for (auto it_per_point = imgInfo.points2D.begin(); it_per_point != imgInfo.points2D.end(); ++it_per_point)
-    {
-        points3D_id.push_back(it_per_point->first);
-        map_pts.push_back(it_per_point->second);
-    }
-    cv::calcOpticalFlowPyrLK(mapImg, cur_img, map_pts, cur_pts, status, err, cv::Size(21, 21), 3);
+// /*
+// select new track points
+// */
+// void FeatureTracker::projMapPointOF(const cv::Mat &mapImg, const MapImage &imgInfo, vector<cv::Point2f> &cur_pts, vector<int> &points3D_id)
+// {
+//     vector<cv::Point2f> map_pts;
+//     vector<uchar> status;
+//     vector<float> err;
+//     for (auto it_per_point = imgInfo.points2D.begin(); it_per_point != imgInfo.points2D.end(); ++it_per_point)
+//     {
+//         points3D_id.push_back(it_per_point->first);
+//         map_pts.push_back(it_per_point->second);
+//     }
+//     cv::calcOpticalFlowPyrLK(mapImg, cur_img, map_pts, cur_pts, status, err, cv::Size(21, 21), 3);
 
-    for (int i = 0; i < int(cur_pts.size()); ++i)
-    {
-        if(status[i])
-        {
-            if (mask.at<uchar>(cur_pts[i]) == 0)
-            {
-                status[i] = 0;
-            }
-            else
-            {
-                cv::circle(mask, cur_pts[i], MIN_DIST / 2, 0, -1);
-            }
-        }
-    }
-    reduceVector(cur_pts, status);
-    reduceVector(points3D_id, status);
-}
+//     for (int i = 0; i < int(cur_pts.size()); ++i)
+//     {
+//         if(status[i])
+//         {
+//             if (mask.at<uchar>(cur_pts[i]) == 0)
+//             {
+//                 status[i] = 0;
+//             }
+//             else
+//             {
+//                 cv::circle(mask, cur_pts[i], MIN_DIST / 2, 0, -1);
+//             }
+//         }
+//     }
+//     reduceVector(cur_pts, status);
+//     reduceVector(points3D_id, status);
+// }
 
-void FeatureTracker::setMapMask()
-{
-    mask = cv::Mat(row, col, CV_8UC1, cv::Scalar(255));
+// void FeatureTracker::setMapMask()
+// {
+//     mask = cv::Mat(row, col, CV_8UC1, cv::Scalar(255));
 
-    // prefer to keep features that are tracked for long time
-    vector<pair<int, pair<cv::Point2f, pair<int, int>>>> cnt_pts_id;
+//     // prefer to keep features that are tracked for long time
+//     vector<pair<int, pair<cv::Point2f, pair<int, int>>>> cnt_pts_id;
 
-    for (unsigned int i = 0; i < cur_pts.size(); i++)
-        cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(cur_pts[i], make_pair(ids[i], map_ids[i]))));
+//     for (unsigned int i = 0; i < cur_pts.size(); i++)
+//         cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(cur_pts[i], make_pair(ids[i], map_ids[i]))));
 
-    sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, pair<int, int>>> &a, const pair<int, pair<cv::Point2f, pair<int, int>>> &b)
-         { return a.first > b.first; });
+//     sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, pair<int, int>>> &a, const pair<int, pair<cv::Point2f, pair<int, int>>> &b)
+//          { return a.first > b.first; });
 
-    cur_pts.clear();
-    ids.clear();
-    map_ids.clear();
-    track_cnt.clear();
+//     cur_pts.clear();
+//     ids.clear();
+//     map_ids.clear();
+//     track_cnt.clear();
 
-    for (auto &it : cnt_pts_id)
-    {
-        if (mask.at<uchar>(it.second.first) == 255)
-        {
-            cur_pts.push_back(it.second.first);
-            ids.push_back(it.second.second.first);
-            map_ids.push_back(it.second.second.second);
-            track_cnt.push_back(it.first);
-            cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
-        }
-    }
-}
+//     for (auto &it : cnt_pts_id)
+//     {
+//         if (mask.at<uchar>(it.second.first) == 255)
+//         {
+//             cur_pts.push_back(it.second.first);
+//             ids.push_back(it.second.second.first);
+//             map_ids.push_back(it.second.second.second);
+//             track_cnt.push_back(it.first);
+//             cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+//         }
+//     }
+// }
 
-map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImageWithMap(const string &img_name, double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
-{
-    TicToc t_r;
-    cur_time = _cur_time;
-    cur_img = _img;
-    row = cur_img.rows;
-    col = cur_img.cols;
-    cv::Mat rightImg = _img1;
-    cur_pts.clear();
-    string matchImgFile;
-    auto it_pair = pairs.find(img_name);
-    if (it_pair != pairs.end())
-    {
-        matchImgFile = it_pair->second;
-        estimate_T = true;
-    }
-    else
-    {
-        matchImgFile = "";
-        estimate_T = false;
-    }
+// map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImageWithMap(const string &img_name, double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
+// {
+//     TicToc t_r;
+//     cur_time = _cur_time;
+//     cur_img = _img;
+//     row = cur_img.rows;
+//     col = cur_img.cols;
+//     cv::Mat rightImg = _img1;
+//     cur_pts.clear();
+//     string matchImgFile;
+//     auto it_pair = pairs.find(img_name);
+//     if (it_pair != pairs.end())
+//     {
+//         matchImgFile = it_pair->second;
+//         estimate_T = true;
+//     }
+//     else
+//     {
+//         matchImgFile = "";
+//         estimate_T = false;
+//     }
 
-    if (prev_pts.size() > 0)
-    {
-        TicToc t_o;
-        vector<uchar> status;
-        vector<float> err;
-        if (hasPrediction)
-        {
-            cur_pts = predict_pts;
-            cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 1,
-                                     cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
+//     if (prev_pts.size() > 0)
+//     {
+//         TicToc t_o;
+//         vector<uchar> status;
+//         vector<float> err;
+//         if (hasPrediction)
+//         {
+//             cur_pts = predict_pts;
+//             cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 1,
+//                                      cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
 
-            int succ_num = 0;
-            for (size_t i = 0; i < status.size(); i++)
-            {
-                if (status[i])
-                    succ_num++;
-            }
-            if (succ_num < 10)
-                cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
-        }
-        else
-            cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
-        // reverse check
-        if (FLOW_BACK)
-        {
-            vector<uchar> reverse_status;
-            vector<cv::Point2f> reverse_pts = prev_pts;
-            cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 1,
-                                     cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
-            // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 3);
-            for (size_t i = 0; i < status.size(); i++)
-            {
-                if (status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
-                {
-                    status[i] = 1;
-                }
-                else
-                    status[i] = 0;
-            }
-        }
+//             int succ_num = 0;
+//             for (size_t i = 0; i < status.size(); i++)
+//             {
+//                 if (status[i])
+//                     succ_num++;
+//             }
+//             if (succ_num < 10)
+//                 cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
+//         }
+//         else
+//             cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
+//         // reverse check
+//         if (FLOW_BACK)
+//         {
+//             vector<uchar> reverse_status;
+//             vector<cv::Point2f> reverse_pts = prev_pts;
+//             cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 1,
+//                                      cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
+//             // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 3);
+//             for (size_t i = 0; i < status.size(); i++)
+//             {
+//                 if (status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
+//                 {
+//                     status[i] = 1;
+//                 }
+//                 else
+//                     status[i] = 0;
+//             }
+//         }
 
-        for (int i = 0; i < int(cur_pts.size()); i++)
-            if (status[i] && !inBorder(cur_pts[i]))
-                status[i] = 0;
-        reduceVector(prev_pts, status);
-        reduceVector(cur_pts, status);
-        reduceVector(ids, status);
-        reduceVector(map_ids, status);
-        reduceVector(track_cnt, status);
-        ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
-        // printf("track cnt %d\n", (int)ids.size());
-    }
+//         for (int i = 0; i < int(cur_pts.size()); i++)
+//             if (status[i] && !inBorder(cur_pts[i]))
+//                 status[i] = 0;
+//         reduceVector(prev_pts, status);
+//         reduceVector(cur_pts, status);
+//         reduceVector(ids, status);
+//         reduceVector(map_ids, status);
+//         reduceVector(track_cnt, status);
+//         ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
+//         // printf("track cnt %d\n", (int)ids.size());
+//     }
 
-    for (auto &n : track_cnt)
-        n++;
+//     for (auto &n : track_cnt)
+//         n++;
 
-    vector<int> new_map_p3d_id;
-    if (1)
-    {
-        // rejectWithF();
-        ROS_DEBUG("set mask begins");
-        TicToc t_m;
-        setMapMask();
-        ROS_DEBUG("set mask costs %fms", t_m.toc());
+//     vector<int> new_map_p3d_id;
+//     if (1)
+//     {
+//         // rejectWithF();
+//         ROS_DEBUG("set mask begins");
+//         TicToc t_m;
+//         setMapMask();
+//         ROS_DEBUG("set mask costs %fms", t_m.toc());
 
-        ROS_DEBUG("detect feature begins");
-        TicToc t_t;
-        int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
-        if (n_max_cnt > 0)
-        {
-            if (mask.empty())
-                cout << "mask is empty " << endl;
-            if (mask.type() != CV_8UC1)
-                cout << "mask type wrong " << endl;
-            n_pts.clear();
+//         ROS_DEBUG("detect feature begins");
+//         TicToc t_t;
+//         int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
+//         if (n_max_cnt > 0)
+//         {
+//             if (mask.empty())
+//                 cout << "mask is empty " << endl;
+//             if (mask.type() != CV_8UC1)
+//                 cout << "mask type wrong " << endl;
+//             n_pts.clear();
 
-            if(!matchImgFile.empty())
-            {
-                cv::Mat mapImg = cv::imread(mapBaseDir + "post-map/" + matchImgFile, cv::IMREAD_GRAYSCALE);
-                cur_refimg = images[matchImgFile];
-                projMapPointOF(mapImg, cur_refimg, n_pts, new_map_p3d_id);
-                if (int(n_pts.size()) > n_max_cnt)
-                {
-                    n_pts.resize(n_max_cnt);
-                    new_map_p3d_id.resize(n_max_cnt);
-                }
-            }
-            else
-            {
-                cur_refimg = MapImage();
-            }
+//             if(!matchImgFile.empty())
+//             {
+//                 cv::Mat mapImg = cv::imread(mapBaseDir + "post-map/" + matchImgFile, cv::IMREAD_GRAYSCALE);
+//                 cur_refimg = images[matchImgFile];
+//                 projMapPointOF(mapImg, cur_refimg, n_pts, new_map_p3d_id);
+//                 if (int(n_pts.size()) > n_max_cnt)
+//                 {
+//                     n_pts.resize(n_max_cnt);
+//                     new_map_p3d_id.resize(n_max_cnt);
+//                 }
+//             }
+//             else
+//             {
+//                 cur_refimg = MapImage();
+//             }
 
-            int new_detect_num = n_max_cnt - int(n_pts.size());
-            if (new_detect_num > 0)
-            {
-                vector<cv::Point2f> new_detect;
-                cv::goodFeaturesToTrack(cur_img, new_detect, new_detect_num, 0.01, MIN_DIST, mask);
-                for (int i = 0; i < int(new_detect.size()); ++i)
-                {
-                    n_pts.push_back(new_detect[i]);
-                    new_map_p3d_id.push_back(-1);
-                }
-            }
-        }
-        else
-            n_pts.clear();
-        ROS_DEBUG("detect feature costs: %f ms", t_t.toc());
+//             int new_detect_num = n_max_cnt - int(n_pts.size());
+//             if (new_detect_num > 0)
+//             {
+//                 vector<cv::Point2f> new_detect;
+//                 cv::goodFeaturesToTrack(cur_img, new_detect, new_detect_num, 0.01, MIN_DIST, mask);
+//                 for (int i = 0; i < int(new_detect.size()); ++i)
+//                 {
+//                     n_pts.push_back(new_detect[i]);
+//                     new_map_p3d_id.push_back(-1);
+//                 }
+//             }
+//         }
+//         else
+//             n_pts.clear();
+//         ROS_DEBUG("detect feature costs: %f ms", t_t.toc());
 
-        for (int i = 0; i < int(n_pts.size()); ++i)
-        {
-            cur_pts.push_back(n_pts[i]);
-            ids.push_back(n_id++);
-            track_cnt.push_back(1);
-            map_ids.push_back(new_map_p3d_id[i]);
-        }
-        // printf("feature cnt after add %d\n", (int)ids.size());
-    }
+//         for (int i = 0; i < int(n_pts.size()); ++i)
+//         {
+//             cur_pts.push_back(n_pts[i]);
+//             ids.push_back(n_id++);
+//             track_cnt.push_back(1);
+//             map_ids.push_back(new_map_p3d_id[i]);
+//         }
+//         // printf("feature cnt after add %d\n", (int)ids.size());
+//     }
 
-    cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
-    pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
+//     cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
+//     pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-    if (!_img1.empty() && stereo_cam)
-    {
-        ids_right.clear();
-        cur_right_pts.clear();
-        cur_un_right_pts.clear();
-        right_pts_velocity.clear();
-        cur_un_right_pts_map.clear();
-        map_ids_right.clear();
-        if (!cur_pts.empty())
-        {
-            // printf("stereo image; track feature on right image\n");
-            vector<cv::Point2f> reverseLeftPts;
-            vector<uchar> status, statusRightLeft;
-            vector<float> err;
-            // cur left ---- cur right
-            cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts, status, err, cv::Size(21, 21), 3);
-            // reverse check cur right ---- cur left
-            if (FLOW_BACK)
-            {
-                cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts, reverseLeftPts, statusRightLeft, err, cv::Size(21, 21), 3);
-                for (size_t i = 0; i < status.size(); i++)
-                {
-                    if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
-                        status[i] = 1;
-                    else
-                        status[i] = 0;
-                }
-            }
+//     if (!_img1.empty() && stereo_cam)
+//     {
+//         ids_right.clear();
+//         cur_right_pts.clear();
+//         cur_un_right_pts.clear();
+//         right_pts_velocity.clear();
+//         cur_un_right_pts_map.clear();
+//         map_ids_right.clear();
+//         if (!cur_pts.empty())
+//         {
+//             // printf("stereo image; track feature on right image\n");
+//             vector<cv::Point2f> reverseLeftPts;
+//             vector<uchar> status, statusRightLeft;
+//             vector<float> err;
+//             // cur left ---- cur right
+//             cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts, status, err, cv::Size(21, 21), 3);
+//             // reverse check cur right ---- cur left
+//             if (FLOW_BACK)
+//             {
+//                 cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts, reverseLeftPts, statusRightLeft, err, cv::Size(21, 21), 3);
+//                 for (size_t i = 0; i < status.size(); i++)
+//                 {
+//                     if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
+//                         status[i] = 1;
+//                     else
+//                         status[i] = 0;
+//                 }
+//             }
 
-            ids_right = ids;
-            map_ids_right = map_ids;
-            reduceVector(cur_right_pts, status);
-            reduceVector(ids_right, status);
-            reduceVector(map_ids_right, status);
-            // only keep left-right pts
-            /*
-            reduceVector(cur_pts, status);
-            reduceVector(ids, status);
-            reduceVector(track_cnt, status);
-            reduceVector(cur_un_pts, status);
-            reduceVector(pts_velocity, status);
-            */
-            cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
-            right_pts_velocity = ptsVelocity(ids_right, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
-        }
-        prev_un_right_pts_map = cur_un_right_pts_map;
-    }
-    if (SHOW_TRACK)
-        drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+//             ids_right = ids;
+//             map_ids_right = map_ids;
+//             reduceVector(cur_right_pts, status);
+//             reduceVector(ids_right, status);
+//             reduceVector(map_ids_right, status);
+//             // only keep left-right pts
+//             /*
+//             reduceVector(cur_pts, status);
+//             reduceVector(ids, status);
+//             reduceVector(track_cnt, status);
+//             reduceVector(cur_un_pts, status);
+//             reduceVector(pts_velocity, status);
+//             */
+//             cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+//             right_pts_velocity = ptsVelocity(ids_right, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
+//         }
+//         prev_un_right_pts_map = cur_un_right_pts_map;
+//     }
+//     if (SHOW_TRACK)
+//         drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
-    prev_img = cur_img;
-    prev_pts = cur_pts;
-    prev_un_pts = cur_un_pts;
-    prev_un_pts_map = cur_un_pts_map;
-    prev_time = cur_time;
-    hasPrediction = false;
+//     prev_img = cur_img;
+//     prev_pts = cur_pts;
+//     prev_un_pts = cur_un_pts;
+//     prev_un_pts_map = cur_un_pts_map;
+//     prev_time = cur_time;
+//     hasPrediction = false;
 
-    prevLeftPtsMap.clear();
-    for (size_t i = 0; i < cur_pts.size(); i++)
-        prevLeftPtsMap[ids[i]] = cur_pts[i];
+//     prevLeftPtsMap.clear();
+//     for (size_t i = 0; i < cur_pts.size(); i++)
+//         prevLeftPtsMap[ids[i]] = cur_pts[i];
 
-    Eigen::MatrixXd R_pnp, t_pnp;
-    vector<bool> inliers_mask(map_ids.size(), false);
-    if (!matchImgFile.empty())
-    {
-        vector<cv::Point3f> pnp_pts_3d;
-        vector<cv::Point2f> pnp_pts_2d;
-        vector<int> pnp_idx;
-        std::vector<int> inliers;
-        for (int i = 0; i < int(map_ids.size()); ++i)
-        {
-            if (map_ids[i] == -1)
-            {
-                continue;
-            }
-            Eigen::Vector3d eigen_pt = points3D[map_ids[i]];
-            cv::Point3f pt(static_cast<float>(eigen_pt.x()), static_cast<float>(eigen_pt.y()), static_cast<float>(eigen_pt.z()));
-            pnp_pts_3d.push_back(pt);
-            pnp_pts_2d.push_back(cur_un_pts[i]);
-            pnp_idx.push_back(i);
-        }
-        if(pnp_pts_3d.size() > 5)
-        {
-            cv::Mat rvec, tvec, R;
-            bool success = cv::solvePnPRansac(pnp_pts_3d, pnp_pts_2d, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(4, 1, CV_64F), rvec, tvec, false, 100, 0.5, 0.99, inliers, cv::SOLVEPNP_EPNP);
-            // unordered_set<int> inliers_idx(inliers.begin(), inliers.end());
-            for (auto &idx : inliers)
-            {
-                inliers_mask[pnp_idx[idx]] = true;
-            }
-            ROS_INFO("num project: %d/%d\n", inliers.size(), pnp_pts_3d.size());
-            cv::Rodrigues(rvec, R);
-            cv::cv2eigen(R, R_pnp);
-            cv::cv2eigen(tvec, t_pnp);
-            coarse_R = R_pnp.transpose();
-            coarse_t = coarse_R * -t_pnp;
-        }
-        else
-        {
-            estimate_T = false;
-            inliers_mask = vector<bool>(map_ids.size(), false);
-        }
-    }
+//     Eigen::MatrixXd R_pnp, t_pnp;
+//     vector<bool> inliers_mask(map_ids.size(), false);
+//     if (!matchImgFile.empty())
+//     {
+//         vector<cv::Point3f> pnp_pts_3d;
+//         vector<cv::Point2f> pnp_pts_2d;
+//         vector<int> pnp_idx;
+//         std::vector<int> inliers;
+//         for (int i = 0; i < int(map_ids.size()); ++i)
+//         {
+//             if (map_ids[i] == -1)
+//             {
+//                 continue;
+//             }
+//             Eigen::Vector3d eigen_pt = points3D[map_ids[i]];
+//             cv::Point3f pt(static_cast<float>(eigen_pt.x()), static_cast<float>(eigen_pt.y()), static_cast<float>(eigen_pt.z()));
+//             pnp_pts_3d.push_back(pt);
+//             pnp_pts_2d.push_back(cur_un_pts[i]);
+//             pnp_idx.push_back(i);
+//         }
+//         if(pnp_pts_3d.size() > 5)
+//         {
+//             cv::Mat rvec, tvec, R;
+//             bool success = cv::solvePnPRansac(pnp_pts_3d, pnp_pts_2d, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(4, 1, CV_64F), rvec, tvec, false, 100, 0.5, 0.99, inliers, cv::SOLVEPNP_EPNP);
+//             // unordered_set<int> inliers_idx(inliers.begin(), inliers.end());
+//             for (auto &idx : inliers)
+//             {
+//                 inliers_mask[pnp_idx[idx]] = true;
+//             }
+//             ROS_INFO("num project: %d/%d\n", inliers.size(), pnp_pts_3d.size());
+//             cv::Rodrigues(rvec, R);
+//             cv::cv2eigen(R, R_pnp);
+//             cv::cv2eigen(tvec, t_pnp);
+//             coarse_R = R_pnp.transpose();
+//             coarse_t = coarse_R * -t_pnp;
+//         }
+//         else
+//         {
+//             estimate_T = false;
+//             inliers_mask = vector<bool>(map_ids.size(), false);
+//         }
+//     }
 
-    feature_mapp3d.clear();
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    for (size_t i = 0; i < ids.size(); i++)
-    {
-        int feature_id = ids[i];
-        double x, y, z;
-        x = cur_un_pts[i].x;
-        y = cur_un_pts[i].y;
-        z = 1;
-        if (inliers_mask[i])
-        {
-            Eigen::Vector3d p_c = R_pnp * points3D[map_ids[i]] + t_pnp;
-            z = p_c.z();
-            x *= z;
-            y *= z;
-        }
-        double p_u, p_v;
-        p_u = cur_pts[i].x;
-        p_v = cur_pts[i].y;
-        int camera_id = 0;
-        double velocity_x, velocity_y;
-        velocity_x = pts_velocity[i].x;
-        velocity_y = pts_velocity[i].y;
+//     feature_mapp3d.clear();
+//     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+//     for (size_t i = 0; i < ids.size(); i++)
+//     {
+//         int feature_id = ids[i];
+//         double x, y, z;
+//         x = cur_un_pts[i].x;
+//         y = cur_un_pts[i].y;
+//         z = 1;
+//         if (inliers_mask[i])
+//         {
+//             Eigen::Vector3d p_c = R_pnp * points3D[map_ids[i]] + t_pnp;
+//             z = p_c.z();
+//             x *= z;
+//             y *= z;
+//         }
+//         double p_u, p_v;
+//         p_u = cur_pts[i].x;
+//         p_v = cur_pts[i].y;
+//         int camera_id = 0;
+//         double velocity_x, velocity_y;
+//         velocity_x = pts_velocity[i].x;
+//         velocity_y = pts_velocity[i].y;
 
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-        featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
-        feature_mapp3d[feature_id] = map_ids[i];
-    }
+//         Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+//         xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+//         featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
+//         feature_mapp3d[feature_id] = map_ids[i];
+//     }
 
-    if (!_img1.empty() && stereo_cam)
-    {
-        // vector<cv::Point3f> pts_3d_right;
-        // for (int &m_id : map_ids_right)
-        // {
-        //     Eigen::Vector3d eigen_pt = points3D[m_id];
-        //     cv::Point3f pt_right(static_cast<float>(eigen_pt.x()), static_cast<float>(eigen_pt.y()), static_cast<float>(eigen_pt.z()));
-        //     pts_3d_right.push_back(pt_right);
-        // }
-        // inliers.clear();
-        // inliers_idx.clear();
-        // cv::solvePnPRansac(pts_3d_right, cur_un_right_pts, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(4, 1, CV_64F), rvec, tvec, false, 100, 0.5, 0.99, inliers, cv::SOLVEPNP_EPNP);
-        // inliers_idx.insert(inliers.begin(), inliers.end());
-        // cv::Rodrigues(rvec, R);
-        // Eigen::MatrixXd R_pnp_right, t_pnp_right;
-        // cv::cv2eigen(R, R_pnp_right);
-        // cv::cv2eigen(tvec, t_pnp_right);
-        // Matrix3d R_ba_right = R_pnp_right.block<3, 3>(0, 0);
-        // Eigen::Vector3d t_ba_right = t_pnp_right.col(0);
-        // PnpBA(pts_3d_right, cur_un_right_pts, R_ba_right, t_ba_right);
-        for (size_t i = 0; i < ids_right.size(); i++)
-        {
-            int feature_id = ids_right[i];
-            double x, y, z;
-            // Eigen::Vector3d p_c = R_pnp_right * points3D[map_ids_right[i]] + t_pnp_right;
-            // x = p_c.x();
-            // y = p_c.y();
-            x = cur_un_right_pts[i].x;
-            y = cur_un_right_pts[i].y;
-            z = 1;
-            // if(inliers_idx.find(i) != inliers_idx.end())
-            // {
-            //     z = p_c.z();
-            //     x *= z;
-            //     y *= z;
-            // }
-            double p_u, p_v;
-            p_u = cur_right_pts[i].x;
-            p_v = cur_right_pts[i].y;
-            int camera_id = 1;
-            double velocity_x, velocity_y;
-            velocity_x = right_pts_velocity[i].x;
-            velocity_y = right_pts_velocity[i].y;
+//     if (!_img1.empty() && stereo_cam)
+//     {
+//         // vector<cv::Point3f> pts_3d_right;
+//         // for (int &m_id : map_ids_right)
+//         // {
+//         //     Eigen::Vector3d eigen_pt = points3D[m_id];
+//         //     cv::Point3f pt_right(static_cast<float>(eigen_pt.x()), static_cast<float>(eigen_pt.y()), static_cast<float>(eigen_pt.z()));
+//         //     pts_3d_right.push_back(pt_right);
+//         // }
+//         // inliers.clear();
+//         // inliers_idx.clear();
+//         // cv::solvePnPRansac(pts_3d_right, cur_un_right_pts, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(4, 1, CV_64F), rvec, tvec, false, 100, 0.5, 0.99, inliers, cv::SOLVEPNP_EPNP);
+//         // inliers_idx.insert(inliers.begin(), inliers.end());
+//         // cv::Rodrigues(rvec, R);
+//         // Eigen::MatrixXd R_pnp_right, t_pnp_right;
+//         // cv::cv2eigen(R, R_pnp_right);
+//         // cv::cv2eigen(tvec, t_pnp_right);
+//         // Matrix3d R_ba_right = R_pnp_right.block<3, 3>(0, 0);
+//         // Eigen::Vector3d t_ba_right = t_pnp_right.col(0);
+//         // PnpBA(pts_3d_right, cur_un_right_pts, R_ba_right, t_ba_right);
+//         for (size_t i = 0; i < ids_right.size(); i++)
+//         {
+//             int feature_id = ids_right[i];
+//             double x, y, z;
+//             // Eigen::Vector3d p_c = R_pnp_right * points3D[map_ids_right[i]] + t_pnp_right;
+//             // x = p_c.x();
+//             // y = p_c.y();
+//             x = cur_un_right_pts[i].x;
+//             y = cur_un_right_pts[i].y;
+//             z = 1;
+//             // if(inliers_idx.find(i) != inliers_idx.end())
+//             // {
+//             //     z = p_c.z();
+//             //     x *= z;
+//             //     y *= z;
+//             // }
+//             double p_u, p_v;
+//             p_u = cur_right_pts[i].x;
+//             p_v = cur_right_pts[i].y;
+//             int camera_id = 1;
+//             double velocity_x, velocity_y;
+//             velocity_x = right_pts_velocity[i].x;
+//             velocity_y = right_pts_velocity[i].y;
 
-            Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-            featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
-        }
-    }
+//             Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+//             xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+//             featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
+//         }
+//     }
 
-    // printf("feature track whole time %f\n", t_r.toc());
-    return featureFrame;
-}
+//     // printf("feature track whole time %f\n", t_r.toc());
+//     return featureFrame;
+// }

@@ -64,8 +64,8 @@ extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
-extern float REFERENCE_WEIGHT;
-extern float REFERENCE_CONFIDENCE;
+// extern float REFERENCE_WEIGHT;
+// extern float REFERENCE_CONFIDENCE;
 extern std::vector<float> MASK_VRANGE;
 extern std::vector<float> MASK_HRANGE;
 
@@ -95,7 +95,7 @@ enum NoiseOrder
     O_GW = 9
 };
 
-extern std::string COARSE_POSE;
-extern std::string SP_CFG;
-extern std::string SP_WGT;
-extern std::string FEATURE_NAME;
+// extern std::string COARSE_POSE;
+// extern std::string SP_CFG;
+// extern std::string SP_WGT;
+// extern std::string FEATURE_NAME;
